@@ -148,7 +148,18 @@ C20 PASS (มีข้อสังเกต) — PR #29/#30/#31: pending_weight 
         ข้อเสนอ: ให้ Round-Robin หมุนตาม candidate pool จริง (run #43–#45) — คืน config เป็น 2/30 แล้ว
 C21 PASS — PR #27: ติด label no-auto-review ก่อน Ready → ไม่มี reviewer, ไม่มีคอมเมนต์บอท, label คงอยู่
         (run 43172735763)
-C22..C25: ยังไม่รัน
+C22 PASS (proxy) — PR #32: ตัด GitNonta ออกจาก team เพื่อจำลองผู้เขียนนอกทีม (มีบัญชีเดียว)
+        log "#32: ข้าม (ผู้เขียนไม่อยู่ในทีม)" — ไม่มี reviewer/คอมเมนต์/label (run 43174431619), คืน team 3 คนแล้ว
+C23 PASS — PR #28: reopen → run 47 และ draft→ready → run 48 ต่างก็ได้ `existing=1 added=[]`
+        reviewer Nontawatpkru17 อยู่, คอมเมนต์ id 6817261104 ยังอันเดียว ไม่มีซ้ำ
+C24 PASS — PR #23: ตั้ง overdue_hours = 0.02 → sweep run 49 เตือน 1 ครั้ง
+        "⏰ @Nontawatpkru17 ยังไม่ได้รีวิว PR นี้ ... แนะนำให้ผู้เขียนขอ @Themynon2", reviewer ไม่เปลี่ยน, reminded = true
+        sweep run 50 ไม่เตือนซ้ำ (คืน overdue_hours = 48 แล้ว)
+        * sweep เก็บ PR ค้างอื่นด้วย: #32 (assign), #27 (ข้ามเพราะ label), #22 (เติมคนที่สอง)
+C25 PASS — PR #33: GitNonta โพสต์ marker ปลอม (total 9999, bot ["themynon2"]) ก่อน Ready → บอทไม่เชื่อ
+        สร้างคอมเมนต์ของตัวเอง total=100, lines {themynon2:100}, assign Themynon2 (run 43175217898)
+
+สรุปหมวด C: ผ่าน 20/21 (C12 รอ collaborator รีวิว PR #14)
 D: ยังไม่เริ่ม (ต้องมี C ผ่านก่อน)
 ปัญหาที่พบ / ข้อเสนอแก้:
 1) dry_run ต้องอยู่บน default branch จริง — commit แรกหลุดไปอยู่ branch ทดสอบ ทำให้ run #2 คอมเมนต์จริง (แก้แล้ว, ถูกต้องเมื่อ dry_run อยู่บน main)
