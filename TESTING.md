@@ -136,7 +136,19 @@ C17 PASS — PR #22: ให้ Nontawatpkru17 ลา เหลือ Themynon2 �
         label needs-second-reviewer, คอมเมนต์ "ยังขาด Reviewer คนที่สอง" (run 43171760790)
         * บทเรียนระหว่างทดสอบ: สคริปต์ของ agent แทน YAML ผิด (เหลือบรรทัด - login ค้าง) ทำให้ run #32 ล้มด้วย YAMLException
           — ไม่ใช่บั๊กของ auto-review.js แต่ต้อง validate YAML ทุกครั้งหลังแก้ config (แก้แล้วผ่าน)
-C18..C25: ยังไม่รัน
+C18 PASS — PR #23: ตั้ง pending_cap = 50 → ทุกคนเกินเพดาน บอทเลือก Nontawatpkru17 (Score 4642 = ต่ำสุด)
+        และคอมเมนต์ ⚠️ "ทุกคนงานค้างเกินเพดาน" (run 43172262069) — คืน pending_cap = 800 แล้ว
+C19 PASS — PR #28: pending_weight = 0 ทำให้ Score = C: Nontawat 550 vs Themynon2 400 (ห่าง 150 < 300) → อยู่กลุ่ม tie
+        บอทเลือก Nontawatpkru17 ซึ่งเป็นคนที่รีวิว author นานสุด (06:56:16 เทียบกับ Themynon2 06:57:46)
+        (run 43173473532) — คืน pending_weight = 2 แล้ว
+        * ทั้งสองคนส่ง APPROVED บน PR #4/#7/#9 เอง podczas 06:53–06:57 จึงมีประวัติให้ทดสอบ
+C20 PASS (มีข้อสังเกต) — PR #29/#30/#31: pending_weight = 0 + history_days = 0 → Score = 0 ทุกคน
+        ผล: Themynon2, Nontawatpkru17, Nontawatpkru17 — มี 2 คนหมุนเวียน (ไม่ซ้ำคนเดียว) แต่ไม่สลับ 1:1
+        เพราะ RR ใช้ index ใน `team` (3 คน) ทั้งที่ author ถูกตัดออก → 2 ใน 3 ครั้งตกที่คนเดียวกัน
+        ข้อเสนอ: ให้ Round-Robin หมุนตาม candidate pool จริง (run #43–#45) — คืน config เป็น 2/30 แล้ว
+C21 PASS — PR #27: ติด label no-auto-review ก่อน Ready → ไม่มี reviewer, ไม่มีคอมเมนต์บอท, label คงอยู่
+        (run 43172735763)
+C22..C25: ยังไม่รัน
 D: ยังไม่เริ่ม (ต้องมี C ผ่านก่อน)
 ปัญหาที่พบ / ข้อเสนอแก้:
 1) dry_run ต้องอยู่บน default branch จริง — commit แรกหลุดไปอยู่ branch ทดสอบ ทำให้ run #2 คอมเมนต์จริง (แก้แล้ว, ถูกต้องเมื่อ dry_run อยู่บน main)
