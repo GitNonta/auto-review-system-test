@@ -1,0 +1,74 @@
+:root {
+  --bg: #0d1117;
+  --panel: #161b22;
+  --panel2: #1c2430;
+  --line: #2a3441;
+  --fg: #e6edf3;
+  --mut: #8b98ad;
+  --ok: #3fb950;
+  --warn: #d29922;
+  --bad: #f85149;
+  --info: #4493f8;
+  --accent: #4493f8;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 15px/1.5 -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", sans-serif;
+  padding: 16px;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
+}
+a { color: var(--info); text-decoration: none; }
+h1 { font-size: 19px; margin: 0 0 4px; }
+.top { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; justify-content: space-between; margin-bottom: 12px; }
+.muted { color: var(--mut); }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin-bottom: 14px; }
+.kpi { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+.kpi-v { font-size: 22px; font-weight: 700; line-height: 1.2; }
+.kpi-l { font-size: 12px; color: var(--mut); }
+.kpi.ok .kpi-v { color: var(--ok); }
+.kpi.bad .kpi-v { color: var(--bad); }
+.kpi.warn .kpi-v { color: var(--warn); }
+.kpi.info .kpi-v { color: var(--info); }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; align-items: center; }
+input[type=search] {
+  flex: 1 1 200px; min-width: 160px; background: var(--panel); border: 1px solid var(--line);
+  color: var(--fg); border-radius: 8px; padding: 9px 12px; font-size: 15px;
+}
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { background: var(--panel); border: 1px solid var(--line); color: var(--fg); border-radius: 999px; padding: 6px 12px; font-size: 13px; cursor: pointer; }
+.chip[aria-pressed=true] { border-color: var(--accent); color: var(--accent); background: var(--panel2); }
+.pr { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
+.pr-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.num { font-weight: 700; color: var(--mut); }
+.title { font-weight: 600; flex: 1 1 220px; min-width: 0; overflow-wrap: anywhere; }
+.badge, .tag, .label { font-size: 12px; border-radius: 999px; padding: 2px 9px; border: 1px solid transparent; white-space: nowrap; }
+.badge.ok, .tag.approved { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 45%, transparent); }
+.badge.bad, .tag.changes { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 45%, transparent); }
+.badge.warn, .tag.commented { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, transparent); }
+.badge.info { color: var(--info); border-color: color-mix(in srgb, var(--info) 45%, transparent); }
+.badge.muted, .tag.pending { color: var(--mut); border-color: var(--line); }
+.meta { font-size: 13px; color: var(--mut); margin: 6px 0; }
+.labels { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 8px; }
+.label { color: var(--mut); border-color: var(--line); }
+.reviewers { display: grid; gap: 8px; }
+.rv { border-top: 1px dashed var(--line); padding-top: 8px; }
+.rv:first-child { border-top: 0; padding-top: 0; }
+.rv-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 14px; }
+.lines { color: var(--mut); font-size: 13px; }
+.parts { margin: 4px 0 0; padding-left: 18px; font-size: 13px; }
+.parts li { margin: 2px 0; overflow-wrap: anywhere; }
+code { font-size: 12.5px; background: var(--panel2); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; }
+table { width: 100%; border-collapse: collapse; font-size: 13.5px; margin-top: 6px; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+th { color: var(--mut); font-weight: 600; }
+td:not(:first-child), th:not(:first-child) { text-align: right; }
+h2 { font-size: 15px; margin: 18px 0 6px; }
+footer { margin-top: 18px; font-size: 12px; color: var(--mut); }
+@media (max-width: 520px) {
+  body { padding: 12px; }
+  .kpi-v { font-size: 19px; }
+  .title { flex-basis: 100%; }
+}

@@ -31,9 +31,44 @@ mkpr() {
 npm install --no-save js-yaml@4.1.0
 node --test .github/scripts/auto-review.test.js
 node --test .github/scripts/auto-review.integration.test.js
+node --test .github/scripts/dashboard.test.js
+(cd dashboard-rs && cargo test)   # dashboard เวอร์ชัน Rust — 6 เทสต์
 ```
-ต้องผ่านทั้งหมด (unit 15, integration 12 ข้อ) ถ้ามีข้อล้ม ห้ามไปต่อ
+ต้องผ่านทั้งหมด (unit 16, integration 12, dashboard 8 = 36 ข้อ) ถ้ามีข้อล้ม ห้ามไปต่อ
 ครอบคลุม: glob ไฟล์ยกเว้น, แบ่งขอบเขตไฟล์, แบ่งช่วงบรรทัดในไฟล์เดียว (hunk), ไฟล์ใหญ่ที่ไม่มี patch, เลือก Score ต่ำสุด, งานค้าง ×2, tie-break ด้วย Exchange Matrix, Round-Robin, เพดานงานค้าง, Gap, marker, จำลอง 80 PR (Gap ≤ 20%), เปิด PR เล็ก/ใหญ่, ไฟล์เดียว 900 บรรทัด, เลือกเอง, Draft, รันซ้ำ, synchronize, คอมเมนต์ซ้ำ/race, ทุกคนลา
+
+### A2. Dashboard (ไม่ต้องมี token ถ้าใช้ snapshot)
+```bash
+node .github/scripts/dashboard.cjs --repo <owner/repo> --out /tmp/dashboard.html   # ต้องมี token
+node .github/scripts/dashboard.cjs --snapshot snap.json --out /tmp/dashboard.html  # ออฟไลน์
+```
+ตรวจ: เปิดไฟล์แล้วเห็น KPI, การ์ดต่อ PR, ชื่อ reviewer + สถานะรีวิว, และ (ถ้า PR ใหญ่ถูกแบ่ง) ช่วงบรรทัด
+เช่น `1–350` / `351–700` ตรงกับคอมเมนต์ของบอท — dashboard เป็นอ่านอย่างเดียวและต้องไม่เปลี่ยนอะไรบน GitHub
+
+### A3. Frontend Vite (`dashboard-web/`)
+```bash
+cd dashboard-web && npm install
+npm run build                              # ต้องได้ dist/ (index.html + assets/*.js,*.css), exit 0
+cd ../dashboard-rs && ./target/release/dashboard-rs --repo owner/name --serve 7790 --host 0.0.0.0
+curl -s -o /dev/null -w '%{http_code} %{content_type}\n' http://127.0.0.1:7790/            # 200 text/html (ขนาด ~704 bytes = Vite index)
+curl -s http://127.0.0.1:7790/api/data.json | head -c 120                                   # ต้องเป็น JSON ไม่ใช่ HTML
+curl -sI http://127.0.0.1:7790/assets/<ไฟล์>.js | grep -i content-type                      # text/javascript
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:7790/pr/21                        # 200 (SPA fallback)
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:7790/assets/nope.js               # 404
+```
+ตรวจ: หน้าเว็บมี KPI 7 ใบ, การ์ด PR ครบตามจำนวนที่ API ส่งมา, ช่วงบรรทัดของ reviewer และตารางภาระงาน
+ถ้า `curl /` ได้ HTML ขนาด ~18 KB = ยังเป็นตัวเก่า/ไม่พบ `dashboard-web/dist`; ถ้าได้ `text/html` ที่ `/api/data.json` = มี process เก่าครองพอร์ต 7790
+โหมด dev (ไม่ต้อง build): `cd dashboard-web && npm run dev` → http://127.0.0.1:5174 (proxy `/api` → :7790)
+
+### A4. Workflow build (Vite + Rust)
+```bash
+python3 -c 'import yaml;d=yaml.safe_load(open(".github/workflows/dashboard-build.yml"));print(sorted(d["jobs"]))'   # ['bundle','rust','web']
+(cd dashboard-web && npm ci --no-audit --no-fund && npm run build)                 # จำลอง job web
+(cd dashboard-rs && cargo build --release --locked && cargo test --locked)         # จำลอง job rust
+```
+จำลอง job `bundle`: สร้าง `web/` (จาก dist) + `bin/` (ไบนารี) แล้วรัน
+`./bin/dashboard-rs --repo owner/name --serve 7795 --web web` → `/` ต้องได้ index.html ของ Vite (~704 bytes),
+`/api/data.json` เป็น JSON, `/assets/*.js` เป็น `text/javascript`
 
 ## B. Dry-run บน GitHub จริง
 1. ตั้ง `dry_run: true` ใน `.github/auto-review.yml` (merge เข้า default branch)

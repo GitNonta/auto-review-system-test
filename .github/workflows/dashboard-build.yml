@@ -1,0 +1,123 @@
+name: Build dashboard (Vite + Rust)
+
+# build แดชบอร์ดสองส่วนแล้วแนบเป็น artifact:
+#   dashboard-web-dist        → dist/ ของ Vite (index.html + assets)
+#   dashboard-rs-linux-x86_64 → ไบนารี Rust (เสิร์ฟ dist ได้ด้วย --web)
+#   auto-review-dashboard     → รวมทั้งสองอย่างเป็นชุดเดียว พร้อมรัน
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'dashboard-web/**'
+      - 'dashboard-rs/**'
+      - '.github/workflows/dashboard-build.yml'
+  pull_request:
+    paths:
+      - 'dashboard-web/**'
+      - 'dashboard-rs/**'
+      - '.github/workflows/dashboard-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dashboard-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    name: Vite frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dashboard-web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: dashboard-web/package-lock.json
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Build
+        run: npm run build
+
+      - name: Upload dist
+        uses: actions/upload-artifact@v4
+        with:
+          name: dashboard-web-dist
+          path: dashboard-web/dist
+          retention-days: 14
+          if-no-files-found: error
+
+  rust:
+    name: Rust backend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dashboard-rs
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: dashboard-rs
+
+      - name: Build (release)
+        run: cargo build --release --locked
+
+      - name: Test
+        run: cargo test --locked
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: dashboard-rs-linux-x86_64
+          path: dashboard-rs/target/release/dashboard-rs
+          retention-days: 14
+          if-no-files-found: error
+
+  bundle:
+    name: Bundle frontend + binary
+    needs: [web, rust]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dashboard-web-dist
+          path: bundle/web
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: dashboard-rs-linux-x86_64
+          path: bundle/bin
+
+      - name: ตรวจโครงสร้าง + วิธีรัน
+        run: |
+          set -eu
+          chmod +x bundle/bin/dashboard-rs
+          test -f bundle/web/index.html
+          ls -l bundle/bin/dashboard-rs bundle/web/index.html
+          cat > bundle/RUN.md <<'EOF'
+          # Auto-review dashboard (artifact)
+
+          1. `chmod +x bin/dashboard-rs`
+          2. `./bin/dashboard-rs --repo owner/name --serve 7790 --host 0.0.0.0 --web web`
+          3. เปิด http://127.0.0.1:7790 (หน้า Vite) — API อยู่ที่ `/api/data.json`
+          4. ต้องมี token: env `GH_TOKEN`/`GITHUB_TOKEN` หรือ `git credential fill` ของ github.com
+          5. ถ้าต้องการ exclude patterns ตาม repo ให้เพิ่ม `--config <repo>/.github/auto-review.yml`
+          EOF
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: auto-review-dashboard
+          path: bundle
+          retention-days: 14
+          if-no-files-found: error
