@@ -104,7 +104,14 @@ C01..C05: ผ่านครบ 5/5 (Nontawatpkru17 และ Themynon2 accept i
         log: "#7: total=50 needed=1 existing=0 added=[nontawatpkru17]"
         (run https://github.com/GitNonta/auto-review-system-test/actions/runs/43168872774)
         * รอบแรก assignment ล้มเพราะบอทเลือกคำเชิญที่ยังค้าง → 422 ทั้งชุด
-C06..C25: ยังไม่รัน — ตอนนี้ team ครบ 3 คน (accept แล้ว) พร้อมรันต่อ
+C06 PASS — PR #9: 800 บรรทัด 4 ไฟล์ → reviewer 2 คน (Nontawatpkru17, Themynon2)
+        แบ่งไฟล์ไม่ซ้า ครบทั้ง 4 ไฟล์ คนละ 400 บรรทัด (state.split=true, total=800)
+        (run https://github.com/GitNonta/auto-review-system-test/actions/runs/43169132136)
+C07 PASS — PR #10: เปิด 100 บรรทัด → reviewer 1 คน (Nontawatpkru17) → push เพิ่มเป็น 800
+        บอทเพิ่ม Themynon2 เป็นคนที่สอง, คอมเมนต์เดิมถูกอัปเดต (1 อันเท่าเดิม id ไม่เปลี่ยน) total=800 แบ่ง 334/466
+        (run https://github.com/GitNonta/auto-review-system-test/actions/runs/43169304130)
+        * push 3 ไฟล์ติดกันทำให้เกิด 3 run ซ้อน (concurrency cancel-in-progress=false) รอบสุดท้ายจัดการ state 800 ถูกต้อง
+C08..C25: ยังไม่รัน
 D: ยังไม่เริ่ม (ต้องมี C ผ่านก่อน)
 ปัญหาที่พบ / ข้อเสนอแก้:
 1) dry_run ต้องอยู่บน default branch จริง — commit แรกหลุดไปอยู่ branch ทดสอบ ทำให้ run #2 คอมเมนต์จริง (แก้แล้ว, ถูกต้องเมื่อ dry_run อยู่บน main)
