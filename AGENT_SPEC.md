@@ -23,6 +23,10 @@ Acceptance Criteria ของงาน
 | `.github/pull_request_template.md` | PR Template 3 บรรทัด |
 | `.github/scripts/auto-review.test.js` | Unit test ของฟังก์ชันล้วน |
 | `.github/scripts/auto-review.integration.test.js` | ทดสอบ flow ด้วย GitHub API จำลอง |
+| `.github/scripts/dashboard.cjs` | Dashboard อ่านอย่างเดียว (PR, reviewer, ช่วงบรรทัด, ภาระค้าง) |
+| `.github/scripts/dashboard.test.js` | Unit test ของ dashboard (model/render/config) |
+| `dashboard-rs/` | dashboard เวอร์ชัน Rust (axum) — ไบนารีเดียว 2.95 MB, RAM 9.5 MB สด / ~26 MB steady (Node ~57–59 MB) ผล HTML เท่ากัน + `GET /api/data.json` |
+| `dashboard-web/` | frontend Vite (vanilla TS) — `npm run build` → `dashboard-web/dist` ที่ dashboard-rs เสิร์ฟเอง (JS 7.5 kB / 3.2 kB gz) |
 | `TESTING.md` | ขั้นตอนทดสอบ (unit, dry-run, ทดสอบจริง) |
 
 ## 3. ข้อกำหนดทางเทคนิค
@@ -70,7 +74,10 @@ P = บรรทัดที่ยังค้าง (ถูกขอ review แ
 5. ก่อนเลือกคนถัดไป ให้บวกบรรทัดที่เพิ่ง assign (ส่วนแบ่ง) เข้า P ชั่วคราว
 
 ### 4.6 PR ขนาดใหญ่
-- `split_large_pr: true`: แบ่งไฟล์ให้ Reviewer แต่ละคนให้บรรทัดใกล้เคียงกัน (greedy ไฟล์ใหญ่ก่อน) ภาระนับตามบรรทัดของไฟล์ที่ได้จริง **ไม่หารครึ่งอัตโนมัติ** และบอทคอมเมนต์ระบุไฟล์ของแต่ละคน
+- `split_large_pr: true`: แบ่งขอบเขตให้ Reviewer แต่ละคนให้บรรทัดใกล้เคียงกัน (greedy ไฟล์ใหญ่ก่อน) ภาระนับตามบรรทัดที่ได้จริง **ไม่หารครึ่งอัตโนมัติ**
+  - ถ้าไฟล์เดียวใหญ่กว่าส่วนแบ่งต่อคน (เช่น PR 900 บรรทัด มีไฟล์เดียว) บอทจะแบ่งเป็น **ช่วงบรรทัดตาม hunk ของ diff** เช่น `big.php` บรรทัด 1–450 ให้ A, 451–900 ให้ B
+  - ไฟล์ที่ไม่มีข้อมูล patch (binary/ใหญ่เกินจน GitHub ตัด patch) แบ่งช่วงบรรทัดไม่ได้ → ยกทั้งไฟล์ให้คนที่ว่างสุด และคอมเมนต์เตือนให้ช่วยกันอ่าน
+  - บอทคอมเมนต์ระบุไฟล์/ช่วงบรรทัดของแต่ละคนเสมอ
 - `split_large_pr: false`: ทุกคนอ่านทั้ง PR และนับเต็มทุกคน
 - ถ้ามี Reviewer ที่เลือกเองอยู่แล้ว ให้นับรวมในการแบ่งขอบเขต
 
@@ -117,6 +124,32 @@ Key ทั้งหมด (ต้องมีเอกสารอธิบา�
 - `Gap = (Max − Min) ÷ Average × 100` ของ (C+P) เป้าหมาย ≤ 20% ใน 30 วัน
 - Review Exchange Matrix (ผู้รีวิว × ผู้เขียน)
 - ถ้า `report.issue: true` สร้าง Issue ด้วย
+
+### 7.1 Dashboard (อ่านอย่างเดียว)
+- `node .github/scripts/dashboard.cjs --repo owner/name` → เขียน `dashboard.html` (ไฟล์เดียว ไม่มี asset/CDN)
+- `--serve [port]` เสิร์ฟที่ `127.0.0.1:7788` (สร้าง cache ก่อน listen, รีเฟรชทุก 30 วิ), `--snapshot file.json` ใช้ข้อมูลที่บันทึกไว้ (ไม่ต้องมี token), `--max-pulls n` จำกัดจำนวน PR
+- `--host 0.0.0.0` ใช้เมื่อ proot/host อยู่คนละ network namespace (เช่นเครื่องนี้) แล้วเปิดจากมือถือด้วย `http://<ip ของ proot>:7788` — อย่าใช้ 0.0.0.0 บนเน็ตที่ไม่มีคนที่ไว้ใจ
+- token: `GH_TOKEN` / `GITHUB_TOKEN` หรือ `git credential` ของ `github.com`
+- แสดงต่อ PR: สถานะ (พร้อม merge / รอรีวิว / ขอแก้ไข / ยังไม่มี Reviewer / Draft), ผู้เขียน, บรรทัด, ไฟล์,
+  reviewer แต่ละคนพร้อมสถานะรีวิว, ช่วงบรรทัด/ไฟล์ที่ต้องดู, label, เวลาอัปเดต + ตารางภาระค้างต่อคน
+- ขอบเขตบรรทัดคำนวณด้วย `planScope()` ตัวเดียวกับบอท; ใช้ `lines` จาก marker เป็นหลัก
+- เวอร์ชัน Rust (ค่าเริ่มต้นใช้เมื่อรันค้าง/ประหยัดแรม): `cd dashboard-rs && cargo build --release`
+  แล้ว `./target/release/dashboard-rs --repo owner/name [--out f.html | --serve 7790 --host 0.0.0.0]`
+  (flag ชุดเดียวกับ `dashboard.cjs`; `cargo test` มี 6 เทสต์) — วัดแล้ว RAM 9.5 MB (สด) / ~26 MB (steady) vs ~59 MB, CPU 0.3 vs 0.7–1.0 ms ต่อ 1000 req
+- frontend Vite (`dashboard-web/`): `npm install` ครั้งแรก แล้ว `npm run build` → `dashboard-web/dist` (JS 7.5 kB / 3.2 kB gz, CSS 3.5 kB)
+  - `dashboard-rs --serve` จะหา `dashboard-web/dist` เอง (ลำดับ: `--web` → `dashboard-web/dist` → `../dashboard-web/dist` → `dist`); ถ้าไม่เจอ จะเสิร์ฟ HTML ที่เรนเดอร์จาก server แทน
+  - `/` = `dist/index.html`, `/assets/*` = ไฟล์ static (immutable cache 1 ปี), path อื่นที่ไม่มีนามสกุล = SPA fallback, `GET /api/data.json` = ข้อมูล JSON
+  - โหมด dev ยังใช้ได้: `npm run dev` → http://127.0.0.1:5174 (proxy `/api` ไป :7790, ตั้งปลายทางด้วย env `DASHBOARD_API`)
+  - หน้าเว็บรีเฟรชข้อมูลเองทุก 30 วิ ให้ตรงกับ cache ของ backend
+- **ห้ามเขียนกลับ GitHub** (ไม่มี mutation ใด ๆ) และไม่แตะ workflow
+
+### 7.2 CI build (dashboard)
+- workflow: `.github/workflows/dashboard-build.yml` (trigger: push/PR ที่แตะ `dashboard-web/**` หรือ `dashboard-rs/**` + `workflow_dispatch`)
+- job: `web` (npm ci → npm run build) · `rust` (cargo build --release --locked → cargo test) · `bundle` (รวมเป็นชุดเดียว)
+- artifact: `dashboard-web-dist` · `dashboard-rs-linux-x86_64` · `auto-review-dashboard` (มี `bin/`, `web/`, `RUN.md`)
+- ใช้งาน artifact: `./bin/dashboard-rs --repo owner/name --serve 7790 --host 0.0.0.0 --web web`
+  - ถ้าต้องการ exclude patterns/เกณฑ์เดิม ให้เพิ่ม `--config <path>/.github/auto-review.yml` (ถ้าไม่ส่ง จะใช้ค่าเริ่มต้น = ไม่ exclude lockfile ทำให้ยอดบรรทัดสูงกว่าปกติ)
+- ไม่มี secret ในไฟล์ workflow — ใช้ `GITHUB_TOKEN` ของ runner ตอนรันจริงเท่านั้น
 
 ## 8. ข้อห้าม
 - ห้าม assign Author เป็น Reviewer ของตัวเองทุกกรณี

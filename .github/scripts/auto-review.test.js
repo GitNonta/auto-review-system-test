@@ -3,7 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
 const { pure } = require('./auto-review.cjs');
-const { globToRegex, splitFiles, chooseReviewer, gap, parseState, renderBody, DEFAULTS } = pure;
+const { globToRegex, splitFiles, planScope, hunksFromPatch, chooseReviewer, gap, parseState, renderBody, DEFAULTS } = pure;
 
 const cfg = { ...DEFAULTS };
 const team = ['a', 'b', 'c', 'd'];
@@ -27,6 +27,57 @@ test('splitFiles: ไม่ซ้ำ ครบ และใกล้เคีย
   assert.deepStrictEqual(all, ['f0', 'f1', 'f2', 'f3', 'f4']);
   assert.strictEqual(b[0].lines + b[1].lines, 1050);
   assert.ok(Math.abs(b[0].lines - b[1].lines) <= 100);
+});
+
+test('hunksFromPatch: แปลง hunk เป็นช่วงบรรทัดฝั่งใหม่', () => {
+  const patch = '@@ -1,3 +1,4 @@\n a\n+b\n c\n@@ -20,0 +22,2 @@\n+x\n+y\n';
+  const r = hunksFromPatch(patch);
+  assert.deepStrictEqual(r.map((x) => [x.start, x.end]), [
+    [1, 4],
+    [22, 23],
+  ]);
+  assert.strictEqual(hunksFromPatch(''), null);
+  assert.strictEqual(hunksFromPatch(null), null);
+});
+
+test('planScope: ไฟล์เดียว 1200 บรรทัด → แบ่งช่วงบรรทัด 2 คน ครอบคุลม ไม่ทับกัน', () => {
+  const ranges = [];
+  for (let s = 1; s <= 1200; s += 20) ranges.push({ start: s, end: s + 19, weight: 20 });
+  const b = planScope([{ filename: 'big.php', lines: 1200, ranges }], ['x', 'y']);
+  assert.strictEqual(b.length, 2);
+  const flat = b.flatMap((x) => x.parts.flatMap((p) => p.ranges)).sort((a, c) => a.start - c.start);
+  assert.strictEqual(flat[0].start, 1);
+  assert.strictEqual(flat[flat.length - 1].end, 1200);
+  for (let i = 1; i < flat.length; i++) assert.ok(flat[i].start > flat[i - 1].end, 'ช่วงต้องไม่ทับกัน');
+  assert.strictEqual(flat.length, 2);
+  assert.ok(Math.abs(b[0].lines - b[1].lines) <= 60, `${b[0].lines}/${b[1].lines}`);
+  assert.ok(b.every((x) => x.parts.every((p) => p.ranges && p.ranges.length)));
+});
+
+test('planScope: ไฟล์ใหม่ 700 บรรทัด hunk เดียว → ตัดช่วงบรรทัดได้ (1–350 / 351–700)', () => {
+  const patch = '@@ -0,0 +1,700 @@\n' + Array.from({ length: 700 }, () => '+x').join('\n');
+  const files = [{ filename: 'new.php', lines: 700, ranges: hunksFromPatch(patch) }];
+  assert.strictEqual(files[0].ranges.length, 1, 'ไฟล์ใหม่ทั้งไฟล์มี hunk เดียว');
+  const b = planScope(files, ['x', 'y']);
+  assert.strictEqual(b.length, 2);
+  assert.deepStrictEqual(b[0].parts[0].ranges, [{ start: 1, end: 350 }]);
+  assert.deepStrictEqual(b[1].parts[0].ranges, [{ start: 351, end: 700 }]);
+  assert.deepStrictEqual(b.map((x) => x.lines), [350, 350]);
+});
+
+test('planScope: หลายไฟล์เล็ก → แบ่งตามไฟล์ ไม่มีช่วงบรรทัด', () => {
+  const files = [300, 250, 150, 100].map((lines, i) => ({ filename: `f${i}`, lines, ranges: null }));
+  const b = planScope(files, ['x', 'y']);
+  assert.strictEqual(b.flatMap((x) => x.files).length, 4);
+  assert.ok(b.every((x) => x.parts.every((p) => p.ranges === null)));
+  assert.ok(Math.abs(b[0].lines - b[1].lines) <= 100);
+});
+
+test('planScope: ไฟล์ใหญ่ที่ไม่มี patch → ยกทั้งไฟล์และทำเครื่องหมาย unsplittable', () => {
+  const b = planScope([{ filename: 'bin.dat', lines: 900, ranges: null }], ['x', 'y']);
+  const flagged = b.flatMap((x) => x.parts).filter((p) => p.unsplittable);
+  assert.strictEqual(flagged.length, 1);
+  assert.strictEqual(flagged[0].filename, 'bin.dat');
 });
 
 test('เลือกคน Score ต่ำสุด (ห่างเกิน tie_threshold)', () => {

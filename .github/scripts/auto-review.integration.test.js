@@ -102,6 +102,24 @@ test('PR ใหญ่ 800 บรรทัด: 2 คน แบ่งไฟล์�
   assert.match(calls.created[0].body, /ขอบเขตการรีวิว/);
 });
 
+test('PR ใหญ่ที่แบ่งตามไฟล์ไม่ได้ (ไฟล์เดียว 900 บรรทัด): คอมเมนต์ช่วงบรรทัดของแต่ละคน', async () => {
+  const pr = mkPr(14, 'alice');
+  const patch = Array.from({ length: 30 }, (_, i) => `@@ -${i * 30 + 1},30 +${i * 30 + 1},30 @@\n+x`).join('\n');
+  const files = { 14: [{ filename: 'src/huge.php', additions: 450, deletions: 450, patch }] };
+  const { github, calls } = fakeRepo({ prs: [pr], files });
+
+  await run({ github, context: ctx(14), core });
+
+  assert.strictEqual(calls.requested.length, 1);
+  assert.strictEqual(calls.requested[0].reviewers.length, 2, 'PR 900 บรรทัดต้องใช้ 2 คน');
+  const body = calls.created[0].body;
+  const ranges = [...body.matchAll(/src\/huge\.php` บรรทัด ([\d–,\s]+)/g)];
+  assert.strictEqual(ranges.length, 2, 'ต้องระบุช่วงบรรทัดของทั้งสองคน');
+  assert.match(body, /src\/huge\.php` บรรทัด 1–450/);
+  assert.match(body, /src\/huge\.php` บรรทัด 451–900/);
+  assert.ok(!/\(ทั้งไฟล์/.test(body), 'มี patch ต้องไม่ใช่ทั้งไฟล์');
+});
+
 test('คนเลือกเอง 1 คน + PR ใหญ่: คงคนเดิมและเพิ่มอีก 1 คน', async () => {
   const pr = mkPr(3, 'alice', { requested_reviewers: [{ login: 'bob' }] });
   const { github, calls } = fakeRepo({ prs: [pr], files: { 3: [f('a', 500), f('b', 400)] } });

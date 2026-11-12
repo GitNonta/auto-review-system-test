@@ -67,6 +67,96 @@ function splitFiles(files, logins) {
   return buckets;
 }
 
+/** แปลง patch ของ GitHub เป็นช่วงบรรทัดฝั่งใหม่ (บรรทัดที่ถูกเพิ่ม/แก้) */
+function hunksFromPatch(patch) {
+  if (!patch) return null;
+  const lines = String(patch).split('\n');
+  const ranges = [];
+  for (let i = 0; i < lines.length; i++) {
+    const m = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/.exec(lines[i]);
+    if (!m) continue;
+    const start = Number(m[1]);
+    const count = m[2] === undefined ? 1 : Number(m[2]);
+    let added = 0;
+    for (let j = i + 1; j < lines.length && !/^@@ /.test(lines[j]); j++) {
+      if (lines[j][0] === '+' && !lines[j].startsWith('+++')) added++;
+    }
+    if (count > 0) ranges.push({ start, end: start + count - 1, weight: Math.max(added, 1) });
+    else if (added) ranges.push({ start, end: start, weight: added }); // hunk ที่ลบล้วน: ใช้บรรทัดอ้างอิง
+  }
+  return ranges.length ? ranges : null;
+}
+
+/** รวมช่วงบรรทัดที่ติดกัน/ทับกัน เพื่อให้อ่านง่าย */
+function mergeRanges(ranges) {
+  const out = [];
+  for (const r of [...ranges].sort((a, b) => a.start - b.start || a.end - b.end)) {
+    const last = out[out.length - 1];
+    if (last && r.start <= last.end + 1) last.end = Math.max(last.end, r.end);
+    else out.push({ start: r.start, end: r.end });
+  }
+  return out;
+}
+
+/**
+ * แบ่งขอบเขตการรีวิวเมื่อมี reviewer หลายคน
+ * - ปกติแบ่งตามไฟล์ (ไฟล์ใหญ่สุดก่อน) ให้บรรทัดใกล้เคียงกัน
+ * - ไฟล์ที่ใหญ่กว่าส่วนแบ่งต่อคนและมีข้อมูล patch จะถูกแบ่งเป็น "ช่วงบรรทัด" (hunk)
+ *   เช่น big.php บรรทัด 1–300 ให้ @a, 301–650 ให้ @b
+ * - ไฟล์ที่ไม่มีข้อมูล patch (binary/ถูกตัด) แบ่งไม่ได้ -> ยกทั้งไฟล์ให้คนที่ว่างสุด และทำเครื่องหมายให้ช่วยกันอ่าน
+ */
+function planScope(files, logins) {
+  const buckets = logins.map((login) => ({ login, lines: 0, files: [], parts: [] }));
+  const order = logins.slice();
+  const total = sumLines(files);
+  const target = logins.length ? total / logins.length : total;
+  const units = [];
+  for (const f of [...files].sort((a, b) => b.lines - a.lines || a.filename.localeCompare(b.filename))) {
+    if (logins.length > 1 && f.lines > target && Array.isArray(f.ranges) && f.ranges.length) {
+      // แบ่งเป็นช่วงบรรทัดตาม "ความยาวของช่วง" เพื่อให้ตัดกลาง hunk ใหญ่ได้
+      // (ไฟล์ใหม่ทั้งไฟล์มักมี hunk เดียว เช่น @@ -0,0 +1,700 @@ ถ้าแบ่งตาม hunk จะแบ่งไม่ได้เลย)
+      const span = f.ranges.reduce((s, r) => s + (r.end - r.start + 1), 0) || 1;
+      const k = Math.max(2, Math.min(Math.ceil(f.lines / target), 8, span));
+      const per = span / k;
+      const groups = [];
+      let cur = { ranges: [], span: 0 };
+      for (const r of f.ranges) {
+        let start = r.start;
+        while (start <= r.end) {
+          const room = Math.ceil(per - cur.span) || 1;
+          const end = Math.min(r.end, start + room - 1);
+          cur.ranges.push({ start, end });
+          cur.span += end - start + 1;
+          start = end + 1;
+          if (cur.span >= per && groups.length < k - 1) {
+            groups.push(cur);
+            cur = { ranges: [], span: 0 };
+          }
+        }
+      }
+      if (cur.ranges.length) groups.push(cur);
+      for (const g of groups) {
+        units.push({ filename: f.filename, ranges: mergeRanges(g.ranges), weight: Math.max(1, Math.round((g.span / span) * f.lines)) });
+      }
+    } else {
+      units.push({
+        filename: f.filename,
+        ranges: null,
+        weight: f.lines,
+        unsplittable: logins.length > 1 && f.lines > target,
+      });
+    }
+  }
+  for (const u of units.sort((a, b) => b.weight - a.weight || a.filename.localeCompare(b.filename))) {
+    buckets.sort((a, b) => a.lines - b.lines || order.indexOf(a.login) - order.indexOf(b.login));
+    const b = buckets[0];
+    b.lines += u.weight;
+    if (!b.files.includes(u.filename)) b.files.push(u.filename);
+    b.parts.push({ filename: u.filename, ranges: u.ranges, weight: u.weight, unsplittable: !!u.unsplittable });
+  }
+  return buckets.sort((a, b) => order.indexOf(a.login) - order.indexOf(b.login));
+}
+
 /**
  * เลือก reviewer 1 คนจาก candidates
  * 1) ตัดคนที่งานค้าง (P) เกินเพดาน (ถ้าทุกคนเกิน ใช้ทุกคนและตั้ง overloaded)
@@ -194,7 +284,7 @@ async function run({ github, context, core }) {
     const files = await listAll(github.rest.pulls.listFiles, { pull_number: n });
     return files
       .filter((f) => !exRegex.some((r) => r.test(f.filename)))
-      .map((f) => ({ filename: f.filename, lines: (f.additions || 0) + (f.deletions || 0) }));
+      .map((f) => ({ filename: f.filename, lines: (f.additions || 0) + (f.deletions || 0), ranges: hunksFromPatch(f.patch) }));
   }
 
   async function botComment(n) {
@@ -401,7 +491,7 @@ async function run({ github, context, core }) {
     const lines = {};
     let scope = null;
     if (large && cfg.split_large_pr && finalTeam.length >= 2) {
-      scope = splitFiles(files, finalTeam);
+      scope = planScope(files, finalTeam);
       scope.forEach((b) => (lines[b.login] = b.lines));
     } else finalTeam.forEach((l) => (lines[l] = total));
     for (const p of added) wl.stats[p.login].P += lines[p.login] ?? total;
@@ -433,11 +523,21 @@ async function run({ github, context, core }) {
     }
     if (balanced && !prev) T.push('- บอทเพิ่ม Reviewer อีก 1 คนเพื่อถ่วงภาระ เพราะคนที่เลือกเองมีภาระสะสมสูงกว่าคนต่ำสุดมาก');
     if (scope) {
-      T.push('- ขอบเขตการรีวิว (แบ่งตามไฟล์ ภาระนับตามบรรทัดของไฟล์ที่ได้รับ):');
+      T.push('- ขอบเขตการรีวิว (แบ่งไฟล์/ช่วงบรรทัดให้ใกล้เคียงกัน · ภาระนับตามบรรทัดที่ได้รับ):');
       for (const b of scope) {
-        const shown = b.files.slice(0, 8).map((f) => `\`${f}\``).join(', ');
-        T.push(`  - @${nameOf(b.login)} ≈ ${b.lines} บรรทัด: ${shown}${b.files.length > 8 ? ` และอีก ${b.files.length - 8} ไฟล์` : ''}`);
+        T.push(`  - @${nameOf(b.login)} ≈ **${b.lines}** บรรทัด`);
+        for (const p of b.parts.slice(0, 8)) {
+          if (p.ranges && p.ranges.length) {
+            const shown = p.ranges.map((r) => (r.start === r.end ? `${r.start}` : `${r.start}–${r.end}`)).join(', ');
+            T.push(`    - \`${p.filename}\` บรรทัด ${shown}`);
+          } else {
+            T.push(`    - \`${p.filename}\` (ทั้งไฟล์${p.unsplittable ? ' · แยกช่วงบรรทัดไม่ได้' : ''})`);
+          }
+        }
+        if (b.parts.length > 8) T.push(`    - และอีก ${b.parts.length - 8} รายการ`);
       }
+      const unsplit = [...new Set(scope.flatMap((b) => b.parts.filter((p) => p.unsplittable).map((p) => `\`${p.filename}\``)))];
+      if (unsplit.length) T.push(`- ⚠️ ไฟล์ใหญ่ที่ไม่มีข้อมูล patch จึงแยกช่วงบรรทัดไม่ได้: ${unsplit.join(', ')} — ให้ช่วยกันอ่านไฟล์นี้`);
     }
     if (requestFailed) T.push('- ⚠️ บอทขอ Reviewer ไม่สำเร็จ (ตรวจสอบสิทธิ์ของสมาชิกใน repo) กรุณาเลือกเอง');
     if (needsKey) {
@@ -515,4 +615,4 @@ async function run({ github, context, core }) {
 }
 
 module.exports = run;
-module.exports.pure = { globToRegex, splitFiles, chooseReviewer, gap, parseState, stripState, renderBody, sumLines, DEFAULTS };
+module.exports.pure = { globToRegex, splitFiles, planScope, hunksFromPatch, mergeRanges, chooseReviewer, gap, parseState, stripState, renderBody, sumLines, DEFAULTS };
