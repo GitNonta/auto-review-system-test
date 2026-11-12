@@ -199,8 +199,16 @@ async function run({ github, context, core }) {
 
   async function botComment(n) {
     const cs = await listAll(github.rest.issues.listComments, { issue_number: n });
-    const c = cs.find((x) => x.user?.login === BOT_LOGIN && x.body?.includes(MARK));
-    return c ? { id: c.id, body: c.body, state: parseState(c.body) } : null;
+    // อาจมีคอมเมนต์ state หลายอัน (รันชนกัน/ของสคริปต์เวอร์ชันเก่า/ถูกก๊อปมา)
+    // ต้องใช้ "ล่าสุด" เท่านั้น: ถ้าใช้ find ตัวแรกจะได้ state เก่า ทำให้นับบรรทัดผิดและ assign ซ้ำ
+    const mine = cs.filter((x) => x.user?.login === BOT_LOGIN && x.body?.includes(MARK));
+    if (!mine.length) return null;
+    const sorted = [...mine].sort((a, b) => Number(b.id) - Number(a.id));
+    const [latest, ...dupes] = sorted;
+    if (dupes.length) {
+      core.warning(`#${n}: พบคอมเมนต์ state ของบอทซ้ำ ${dupes.length} อัน — ใช้ #${latest.id} เป็นหลัก และลบอันเก่า`);
+    }
+    return { id: latest.id, body: latest.body, state: parseState(latest.body), dupes: dupes.map((c) => c.id) };
   }
 
   async function reviewData(pr) {
@@ -265,10 +273,21 @@ async function run({ github, context, core }) {
   async function upsertComment(n, existing, text, state) {
     const body = renderBody(text, state);
     if (existing) {
-      if (existing.body === body) return;
-      await mutate(`update bot comment on #${n}`, () => github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body }));
+      if (existing.body !== body) {
+        await mutate(`update bot comment on #${n}`, () => github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body }));
+      }
     } else {
       await mutate(`create bot comment on #${n}`, () => github.rest.issues.createComment({ owner, repo, issue_number: n, body }));
+    }
+    // ลบคอมเมนต์ state ที่ซ้ำ/เก่ากว่า เพื่อให้เหลือใบเดียวและ state ต่อเนื่องไม่กำกวม
+    for (const id of existing?.dupes || []) {
+      await mutate(`delete stale bot comment ${id} on #${n}`, async () => {
+        try {
+          await github.rest.issues.deleteComment({ owner, repo, comment_id: id });
+        } catch (e) {
+          if (e.status !== 404) throw e;
+        }
+      });
     }
   }
 

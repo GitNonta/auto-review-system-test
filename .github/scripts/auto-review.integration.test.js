@@ -21,7 +21,7 @@ test.after(() => {
 });
 
 function fakeRepo({ prs = [], files = {}, reviews = {}, comments = {} }) {
-  const calls = { requested: [], created: [], updated: [], labels: [] };
+  const calls = { requested: [], created: [], updated: [], deleted: [], labels: [] };
   const byNum = (n) => prs.find((p) => p.number === n);
   const rest = {
     pulls: {
@@ -46,6 +46,11 @@ function fakeRepo({ prs = [], files = {}, reviews = {}, comments = {} }) {
       updateComment: async ({ comment_id, body }) => {
         calls.updated.push({ comment_id, body });
         for (const list of Object.values(comments)) list.forEach((c) => c.id === comment_id && (c.body = body));
+        return {};
+      },
+      deleteComment: async ({ comment_id }) => {
+        calls.deleted.push(comment_id);
+        for (const k of Object.keys(comments)) comments[k] = comments[k].filter((c) => c.id !== comment_id);
         return {};
       },
       createLabel: async () => ({}),
@@ -138,6 +143,57 @@ test('PR โตหลังเปิด (synchronize): เพิ่ม Reviewer 
   await run({ github, context: { ...ctx(7), payload: { action: 'synchronize', pull_request: { number: 7 } } }, core });
   assert.strictEqual(calls.requested.length, 2);
   assert.strictEqual(pr.requested_reviewers.length, 2);
+});
+
+test('ready_for_review: draft ถูกข้าม, พร้อมแล้วจึง assign และใช้คอมเมนต์เดิมต่อ', async () => {
+  const pr = mkPr(9, 'alice', { draft: true });
+  const files = { 9: [f('a', 40)] };
+  const { github, calls } = fakeRepo({ prs: [pr], files });
+  const ev = { ...ctx(9), payload: { action: 'ready_for_review', pull_request: { number: 9 } } };
+
+  await run({ github, context: ev, core });
+  assert.strictEqual(calls.requested.length + calls.created.length, 0, 'draft ต้องไม่ทำอะไร');
+
+  pr.draft = false;
+  files[9].push(f('b', 60));
+  await run({ github, context: ev, core });
+  assert.strictEqual(calls.requested.length, 1, 'ready_for_review ต้อง assign');
+  assert.strictEqual(calls.created.length, 1);
+  assert.match(calls.created[0].body, /100\*\* บรรทัด/);
+
+  // รันซ้ำ event เดิม: ใช้คอมเมนต์ใบเดิม ข้อความถูก normalize 1 ครั้ง (ตัด Score ที่ไม่รู้ค่าออก) แล้วนิ่ง
+  await run({ github, context: ev, core });
+  assert.strictEqual(calls.created.length, 1, 'ต้องไม่สร้างคอมเมนต์ซ้ำ');
+  const afterNormalize = calls.updated.length;
+  assert.ok(afterNormalize <= 1, 'เขียนซ้ำได้ไม่เกิน 1 ครั้งเพื่อ normalize ข้อความ');
+  await run({ github, context: ev, core });
+  assert.strictEqual(calls.updated.length, afterNormalize, 'state นิ่งแล้ว: ต้องไม่เขียนซ้ำอีก');
+  assert.strictEqual(calls.requested.length, 1, 'ต้องไม่ request ซ้ำ');
+});
+
+test('คอมเมนต์ state ซ้ำ: ใช้ใบล่าสุด ลบใบเก่า และนับภาระจาก state ล่าสุด', async () => {
+  const pr11 = mkPr(11, 'carol', { requested_reviewers: [{ login: 'bob' }] });
+  const pr12 = mkPr(12, 'alice');
+  const body = (total, lines) =>
+    `ข้อความ\n\n<!-- auto-review-state: ${JSON.stringify({ v: 1, total, lines, bot: ['bob'], at: '2026-11-01T00:00:00.000Z', needs: null, reminded: false, balanced: false })} -->`;
+  const comments = {
+    // ใบเก่า (id 10) บอกงานค้าง 4000 บรรทัด ซึ่งเกิน pending_cap 800 -> ถ้าใช้ใบนี้จะข้าม bob
+    11: [
+      { id: 10, user: { login: 'github-actions[bot]' }, body: body(4000, { bob: 4000 }) },
+      { id: 20, user: { login: 'github-actions[bot]' }, body: body(10, { bob: 10 }) },
+    ],
+  };
+  const { github, calls } = fakeRepo({ prs: [pr11, pr12], files: { 11: [f('x', 10)], 12: [f('y', 50)] }, comments });
+
+  await run({ github, context: { repo: { owner: 'o', repo: 'r' }, eventName: 'workflow_dispatch', payload: {} }, core });
+
+  // state ล่าสุด (id 20) -> bob มี P=10 ไม่เกินเพดาน จึงยังถูกเลือกได้ (ถ้าใช้ใบเก่าจะเลือก carol แทน)
+  assert.deepStrictEqual(calls.requested.map((c) => c.reviewers.map((r) => r.toLowerCase())), [['bob']]);
+  // คอมเมนต์ซ้ำบน #11 ถูกลบเหลือใบเดียว (ใบล่าสุด id 20)
+  assert.deepStrictEqual(calls.deleted, [10]);
+  const marked = comments[11].filter((c) => c.body.includes('auto-review-state'));
+  assert.strictEqual(marked.length, 1);
+  assert.strictEqual(marked[0].id, 20);
 });
 
 test('ไม่มีคนเลือกได้ (ทุกคนลา): ไม่ assign ใคร ติด label needs-reviewer', async () => {
