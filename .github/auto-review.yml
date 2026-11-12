@@ -5,6 +5,7 @@ timezone: Asia/Bangkok
 
 # สมาชิกที่เป็น Reviewer ได้ (GitHub username) ต้องเป็น collaborator ของ repo
 team:
+  - GitNonta
   - Nontawatpkru17
   - Themynon2
 
