@@ -163,7 +163,15 @@ C25 PASS — PR #33: GitNonta โพสต์ marker ปลอม (total 9999, b
         สร้างคอมเมนต์ของตัวเอง total=100, lines {themynon2:100}, assign Themynon2 (run 43175217898)
 
 สรุปหมวด C: ผ่าน 21/21
-D: ยังไม่เริ่ม (ต้องมี C ผ่านก่อน)
+D PASS — จำลอง 25 PR (#38–#62) ขนาด 50–400 บรรทัด รวม 5,220 บรรทัด (author เดียว: GitNonta เพราะมีบัญชีเดียว)
+   ปิด PR ทดสอบเก่า 33 อันเพื่อรีเซ็ต P แล้ว dispatch mode=sweep ครั้งเดียว (run 43177994411) จัดครบ 25 PR
+   - Gap (C+P) = 13.1% (Nontawatpkru17 3,820 / Themynon2 3,350) ≤ 20% ตามเป้า
+   - Exchange Matrix: Nontawatpkru17→GitNonta 6 ครั้ง, Themynon2→GitNonta 1 ครั้ง (>0 ทุกคู่ที่มีอยู่จริง)
+   - ทุก PR ได้ reviewer 1 คน ไม่มี label needs-reviewer ค้าง
+   - report mode=report = success (run 43178431829); วัดเฉพาะ P ได้ Gap 26.1% เพราะ C ต่างกัน 1,150 บรรทัด
+     บอทจึงถ่วงให้คนที่ C น้อยรับ P มากกว่า (สมดุลที่ C+P ไม่ใช่ P เดี่ยว)
+   - จำลองผู้เขียนหมุนเวียน 80 PR (4 ผู้เขียน, ใช้ chooseReviewer จริง) = Gap 12.5% และทุกคู่ใน Exchange Matrix > 0 (5–9 ครั้ง)
+   * ข้อจำกัด: repo ทดสอบมีบัญชีเดียวที่สร้าง PR ได้ จึงหมุน author จริงไม่ได้ — ใช้การจำลองแทน
 ปัญหาที่พบ / ข้อเสนอแก้:
 1) dry_run ต้องอยู่บน default branch จริง — commit แรกหลุดไปอยู่ branch ทดสอบ ทำให้ run #2 คอมเมนต์จริง (แก้แล้ว, ถูกต้องเมื่อ dry_run อยู่บน main)
 2) **บั๊ก (แก้แล้ว)**: team มีคนที่ยังไม่ใช่ collaborator (invite ค้าง) → chooseReviewer เลือกคนนั้นเพราะ Score 0
