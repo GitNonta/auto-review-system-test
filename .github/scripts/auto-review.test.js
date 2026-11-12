@@ -54,6 +54,17 @@ test('planScope: ไฟล์เดียว 1200 บรรทัด → แบ�
   assert.ok(b.every((x) => x.parts.every((p) => p.ranges && p.ranges.length)));
 });
 
+test('planScope: ไฟล์ใหม่ 700 บรรทัด hunk เดียว → ตัดช่วงบรรทัดได้ (1–350 / 351–700)', () => {
+  const patch = '@@ -0,0 +1,700 @@\n' + Array.from({ length: 700 }, () => '+x').join('\n');
+  const files = [{ filename: 'new.php', lines: 700, ranges: hunksFromPatch(patch) }];
+  assert.strictEqual(files[0].ranges.length, 1, 'ไฟล์ใหม่ทั้งไฟล์มี hunk เดียว');
+  const b = planScope(files, ['x', 'y']);
+  assert.strictEqual(b.length, 2);
+  assert.deepStrictEqual(b[0].parts[0].ranges, [{ start: 1, end: 350 }]);
+  assert.deepStrictEqual(b[1].parts[0].ranges, [{ start: 351, end: 700 }]);
+  assert.deepStrictEqual(b.map((x) => x.lines), [350, 350]);
+});
+
 test('planScope: หลายไฟล์เล็ก → แบ่งตามไฟล์ ไม่มีช่วงบรรทัด', () => {
   const files = [300, 250, 150, 100].map((lines, i) => ({ filename: `f${i}`, lines, ranges: null }));
   const b = planScope(files, ['x', 'y']);

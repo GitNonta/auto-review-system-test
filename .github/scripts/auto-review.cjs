@@ -113,22 +113,30 @@ function planScope(files, logins) {
   const units = [];
   for (const f of [...files].sort((a, b) => b.lines - a.lines || a.filename.localeCompare(b.filename))) {
     if (logins.length > 1 && f.lines > target && Array.isArray(f.ranges) && f.ranges.length) {
-      const k = Math.min(f.ranges.length, Math.max(2, Math.ceil(f.lines / target)));
-      const sumW = f.ranges.reduce((s, r) => s + r.weight, 0) || 1;
-      const want = sumW / k;
+      // แบ่งเป็นช่วงบรรทัดตาม "ความยาวของช่วง" เพื่อให้ตัดกลาง hunk ใหญ่ได้
+      // (ไฟล์ใหม่ทั้งไฟล์มักมี hunk เดียว เช่น @@ -0,0 +1,700 @@ ถ้าแบ่งตาม hunk จะแบ่งไม่ได้เลย)
+      const span = f.ranges.reduce((s, r) => s + (r.end - r.start + 1), 0) || 1;
+      const k = Math.max(2, Math.min(Math.ceil(f.lines / target), 8, span));
+      const per = span / k;
       const groups = [];
-      let cur = { ranges: [], w: 0 };
+      let cur = { ranges: [], span: 0 };
       for (const r of f.ranges) {
-        cur.ranges.push(r);
-        cur.w += r.weight;
-        if (cur.w >= want && groups.length < k - 1) {
-          groups.push(cur);
-          cur = { ranges: [], w: 0 };
+        let start = r.start;
+        while (start <= r.end) {
+          const room = Math.ceil(per - cur.span) || 1;
+          const end = Math.min(r.end, start + room - 1);
+          cur.ranges.push({ start, end });
+          cur.span += end - start + 1;
+          start = end + 1;
+          if (cur.span >= per && groups.length < k - 1) {
+            groups.push(cur);
+            cur = { ranges: [], span: 0 };
+          }
         }
       }
       if (cur.ranges.length) groups.push(cur);
       for (const g of groups) {
-        units.push({ filename: f.filename, ranges: mergeRanges(g.ranges), weight: Math.max(1, Math.round((g.w / sumW) * f.lines)) });
+        units.push({ filename: f.filename, ranges: mergeRanges(g.ranges), weight: Math.max(1, Math.round((g.span / span) * f.lines)) });
       }
     } else {
       units.push({
