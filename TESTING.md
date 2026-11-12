@@ -98,6 +98,8 @@ C01..C05: ผ่านครบ 5/5 (Nontawatpkru17 และ Themynon2 accept i
         คอมเมนต์ total=100, ไม่มี label, ไม่มีคอมเมนต์ซ้ำ
         (run https://github.com/GitNonta/auto-review-system-test/actions/runs/43168541870)
         * รอบแรก PR #5 FAIL เพราะบอทเลือก Themynon2 ตอน invitation ยังค้าง → requestReviewers 422 ทั้งชุด (ดูบั๊กข้อ 2)
+        * rerun หลังแก้โค้ด (กรอง collaborator + retry 422): PR #37 → reviewer Themynon2 1 คน, total=100
+          (run 43176340357)
    C04 PASS — PR #6: reviewer = Nontawatpkru17, GitNonta (author) ไม่ถูกเลือก
    C05 PASS — PR #7 (rerun ด้วยการปิด/เปิด PR ใหม่): total=50 (package-lock.json 5,000 บรรทัดไม่ถูกนับ)
         reviewer = Nontawatpkru17 1 คน, label needs-reviewer ถูกลบ, คอมเมนต์เดิมถูกอัปเดตไม่สร้างใหม่ (1 -> 1)
@@ -142,10 +144,10 @@ C19 PASS — PR #28: pending_weight = 0 ทำให้ Score = C: Nontawat 550 
         บอทเลือก Nontawatpkru17 ซึ่งเป็นคนที่รีวิว author นานสุด (06:56:16 เทียบกับ Themynon2 06:57:46)
         (run 43173473532) — คืน pending_weight = 2 แล้ว
         * ทั้งสองคนส่ง APPROVED บน PR #4/#7/#9 เองในช่วง 06:53–06:57 จึงมีประวัติให้ทดสอบ
-C20 PASS (มีข้อสังเกต) — PR #29/#30/#31: pending_weight = 0 + history_days = 0 → Score = 0 ทุกคน
-        ผล: Themynon2, Nontawatpkru17, Nontawatpkru17 — มี 2 คนหมุนเวียน (ไม่ซ้ำคนเดียว) แต่ไม่สลับ 1:1
-        เพราะ RR ใช้ index ใน `team` (3 คน) ทั้งที่ author ถูกตัดออก → 2 ใน 3 ครั้งตกที่คนเดียวกัน
-        ข้อเสนอ: ให้ Round-Robin หมุนตาม candidate pool จริง (run #43–#45) — คืน config เป็น 2/30 แล้ว
+C20 PASS — รอบแรก PR #29/#30/#31 (Score = 0 ทุกคน): Themynon2, Nontawatpkru17, Nontawatpkru17
+        → ไม่สลับ 1:1 เพราะ RR ใช้ index ทั้ง team (3 คน) ทั้งที่ author ถูกตัดออก
+        → แก้ RR ให้หมุนตาม candidate pool แล้ว rerun: PR #34/#35/#36 = Nontawatpkru17, Themynon2, Nontawatpkru17
+        = สลับ 1:1 จริง (run #53–#55) — คืน config เป็น pending_weight 2 / history_days 30 แล้ว
 C21 PASS — PR #27: ติด label no-auto-review ก่อน Ready → ไม่มี reviewer, ไม่มีคอมเมนต์บอท, label คงอยู่
         (run 43172735763)
 C22 PASS (proxy) — PR #32: ตัด GitNonta ออกจาก team เพื่อจำลองผู้เขียนนอกทีม (มีบัญชีเดียว)
@@ -163,8 +165,10 @@ C25 PASS — PR #33: GitNonta โพสต์ marker ปลอม (total 9999, b
 D: ยังไม่เริ่ม (ต้องมี C ผ่านก่อน)
 ปัญหาที่พบ / ข้อเสนอแก้:
 1) dry_run ต้องอยู่บน default branch จริง — commit แรกหลุดไปอยู่ branch ทดสอบ ทำให้ run #2 คอมเมนต์จริง (แก้แล้ว, ถูกต้องเมื่อ dry_run อยู่บน main)
-2) **บั๊กสำคัญ** (ยืนยันจาก C03/C05 รอบแรก): team มีคนที่ยังไม่ใช่ collaborator (invite ค้าง) → chooseReviewer เลือกคนนั้นเพราะ Score 0
-   แล้ว requestReviewers ล้มทั้งชุด แม้มี candidate ที่ขอได้จริง แนะนำแก้: กรอง team ด้วย collaborators API หรือ retry ทีละคนเมื่อได้ 422
+2) **บั๊ก (แก้แล้ว)**: team มีคนที่ยังไม่ใช่ collaborator (invite ค้าง) → chooseReviewer เลือกคนนั้นเพราะ Score 0
+   แล้ว requestReviewers ล้มทั้งชุด แม้มี candidate ที่ขอได้จริง
+   แก้โดย: กรอง team ด้วย collaborators API + retry requestReviewers ทีละคนเมื่อเจอ 422 + แก้ RR ให้หมุนตาม candidate pool
+   ผลหลังแก้: unit 11/11, integration 8/8, rerun C03 (PR #37) และ C20 (PR #34–#36) ผ่าน
 3) Node 20 deprecation warning ของ actions/* (2026): ยังใช้ได้ แต่ควรอัปเกรดเมื่อ actions รองรับ
 4) Summary ของ B3 ตรวจจาก API ไม่ได้ (Job Summary ไม่มี endpoint) — ตรวจได้แค่ว่า run success และตารางถูกสร้างจากฟังก์ชัน report() ที่ unit-test ผ่าน
 ```
