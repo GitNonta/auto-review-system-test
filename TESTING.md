@@ -32,8 +32,8 @@ npm install --no-save js-yaml@4.1.0
 node --test .github/scripts/auto-review.test.js
 node --test .github/scripts/auto-review.integration.test.js
 ```
-ต้องผ่านทั้งหมด (unit 11, integration 8 ข้อ) ถ้ามีข้อล้ม ห้ามไปต่อ
-ครอบคลุม: glob ไฟล์ยกเว้น, แบ่งขอบเขตไฟล์, เลือก Score ต่ำสุด, งานค้าง ×2, tie-break ด้วย Exchange Matrix, Round-Robin, เพดานงานค้าง, Gap, marker, จำลอง 80 PR (Gap ≤ 20%), เปิด PR เล็ก/ใหญ่, เลือกเอง, Draft, รันซ้ำ, synchronize, ทุกคนลา
+ต้องผ่านทั้งหมด (unit 15, integration 12 ข้อ) ถ้ามีข้อล้ม ห้ามไปต่อ
+ครอบคลุม: glob ไฟล์ยกเว้น, แบ่งขอบเขตไฟล์, แบ่งช่วงบรรทัดในไฟล์เดียว (hunk), ไฟล์ใหญ่ที่ไม่มี patch, เลือก Score ต่ำสุด, งานค้าง ×2, tie-break ด้วย Exchange Matrix, Round-Robin, เพดานงานค้าง, Gap, marker, จำลอง 80 PR (Gap ≤ 20%), เปิด PR เล็ก/ใหญ่, ไฟล์เดียว 900 บรรทัด, เลือกเอง, Draft, รันซ้ำ, synchronize, คอมเมนต์ซ้ำ/race, ทุกคนลา
 
 ## B. Dry-run บน GitHub จริง
 1. ตั้ง `dry_run: true` ใน `.github/auto-review.yml` (merge เข้า default branch)
@@ -52,6 +52,7 @@ node --test .github/scripts/auto-review.integration.test.js
 | C04 | Author ไม่ถูกเลือก | ให้ A มี Score ต่ำสุด แล้วให้ A เปิด PR | Reviewer ไม่ใช่ A |
 | C05 | ไฟล์ที่ไม่นับ | PR มี `package-lock.json` 5,000 บรรทัด + โค้ด 50 บรรทัด | คอมเมนต์ระบุขนาด 50 บรรทัด |
 | C06 | PR ใหญ่ | PR 800 บรรทัด หลายไฟล์ | Reviewer 2 คน ขอบเขตไฟล์ไม่ซ้ำ รวมครบทุกไฟล์ บรรทัดของสองคนใกล้เคียงกัน |
+| C06b | PR ใหญ่ที่แบ่งตามไฟล์ไม่ได้ | PR 900 บรรทัด ที่มีไฟล์เดียว | Reviewer 2 คน คอมเมนต์ระบุช่วงบรรทัด (`big.php` 1–450 / 451–900) ครบ ไม่ทับกัน |
 | C07 | PR โตหลังเปิด | เปิด PR 100 บรรทัด แล้ว push เพิ่มเป็น 800 | เพิ่ม Reviewer คนที่สอง คอมเมนต์อัปเดตที่เดิม (ไม่สร้างใหม่) |
 | C08 | เลือกเอง ครบแล้ว | A เลือก B เองใน PR เล็ก | บอทไม่เพิ่มใคร B ยังอยู่ คอมเมนต์ระบุ "เลือกเอง" |
 | C09 | เลือกเอง ไม่ครบ | A เลือก B เองใน PR 800 บรรทัด | B อยู่ต่อ บอทเพิ่ม 1 คน ขอบเขตแบ่งให้ทั้งคู่ |
