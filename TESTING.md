@@ -190,3 +190,16 @@ D PASS — จำลอง 25 PR (#38–#62) ขนาด 50–400 บรรท�
 | `requestReviewers` 422 | username ไม่ใช่ collaborator หรือพิมพ์ผิด | ตรวจ `team` และสิทธิ์ใน repo |
 | บอทไม่เลือกคนที่ Score ต่ำสุด | อยู่ในกลุ่ม `tie_threshold` จึงเลือกตามประวัติการแลกเปลี่ยน | ตั้งใจแล้ว ลด `tie_threshold` ถ้าต้องการเข้มขึ้น |
 | คอมเมนต์ของบอทซ้ำ | บัญชีที่คอมเมนต์ไม่ใช่ `github-actions[bot]` (เช่นใช้ PAT) | ใช้ `GITHUB_TOKEN` ปกติ หรือปรับ `BOT_LOGIN` |
+
+## ภาคผนวก: พฤติกรรมเมื่อเปิด PR / draft→ready / เลือก reviewer เอง / ไม่มีคนว่าง (12 พ.ย. 2026)
+
+| สถานการณ์ | บอททำอะไร | หลักฐาน |
+|---|---|---|
+| เปิด PR ปกติ (ไม่ draft) | ทำงานทันทีที่ event `opened` → เลือก 1 คน (PR ≤ 600 บรรทัด) + คอมเมนต์ | PR #63 run 63 (`added=[themynon2] total=100`) |
+| เปิดเป็น draft | **ข้าม** — log `#64: ข้าม (draft หรือไม่ได้เปิดอยู่)` ไม่มี reviewer/คอมเมนต์ | PR #64 run 64 |
+| draft → ready | ทำงานที่ event `ready_for_review` → เลือก reviewer | PR #64 run 65 (`added=[nontawatpkru17]`) |
+| author เลือก reviewer เอง | ไม่ลบ/ไม่ทับ/ไม่เพิ่มถ้าครบแล้ว (`existing=1 added=[]`) คอมเมนต์ระบุ "เลือกเอง" | PR #65 run 67 |
+| ...แล้ว push commit จน PR โตเป็น 800 | เก็บคนที่เลือกเองไว้ + เพิ่มคนที่สองให้ครบ + แบ่งขอบเขต คอมเมนต์เดิมอัปเดต (ยัง 1 อัน) | PR #65 run 68 (`existing=1 added=[themynon2] total=800`) |
+| ไม่มีใครเลือกได้ (ทุกคนลา) | ไม่ assign ใคร, ติด label `needs-reviewer`, คอมเมนต์แจ้ง, `state.needs=needs_reviewer` — sweep จะจัดให้เมื่อมีคนกลับมา | PR #66 run 69 |
+
+สรุป: เลือก reviewer ที่ event `opened` และ `ready_for_review`; ส่วน `synchronize` (push) จะทำให้บอทตรวจซ้ำและ "เติม" reviewer ถ้าขนาด PR เปลี่ยนจนต้องใช้หลายคนเท่านั้น
