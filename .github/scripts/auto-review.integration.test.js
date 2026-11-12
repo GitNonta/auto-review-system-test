@@ -40,8 +40,9 @@ function fakeRepo({ prs = [], files = {}, reviews = {}, comments = {} }) {
       listComments: async ({ issue_number }) => ({ data: comments[issue_number] || [] }),
       createComment: async ({ issue_number, body }) => {
         calls.created.push({ issue_number, body });
-        (comments[issue_number] ||= []).push({ id: Date.now(), user: { login: 'github-actions[bot]' }, body });
-        return {};
+        const id = 1000 + calls.created.length;
+        (comments[issue_number] ||= []).push({ id, user: { login: 'github-actions[bot]' }, body });
+        return { data: { id } };
       },
       updateComment: async ({ comment_id, body }) => {
         calls.updated.push({ comment_id, body });
@@ -73,7 +74,7 @@ function fakeRepo({ prs = [], files = {}, reviews = {}, comments = {} }) {
       iterator: (fn, params) => ({ async *[Symbol.asyncIterator]() { yield await fn(params); } }),
     }),
   };
-  return { github, calls };
+  return { github, calls, comments };
 }
 
 const mkPr = (number, author, extra = {}) => ({ number, state: 'open', draft: false, user: { login: author, type: 'User' }, labels: [], requested_reviewers: [], created_at: new Date().toISOString(), updated_at: new Date().toISOString(), ...extra });
@@ -194,6 +195,29 @@ test('คอมเมนต์ state ซ้ำ: ใช้ใบล่าสุ�
   const marked = comments[11].filter((c) => c.body.includes('auto-review-state'));
   assert.strictEqual(marked.length, 1);
   assert.strictEqual(marked[0].id, 20);
+});
+
+test('สร้างคอมเมนต์พร้อมกัน (race): เก็บใบของเรา ลบใบที่ซ้ำ เหลือ state ใบเดียว', async () => {
+  const pr = mkPr(13, 'alice');
+  const { github, calls, comments } = fakeRepo({ prs: [pr], files: { 13: [f('a', 20)] } });
+  const origCreate = github.rest.issues.createComment;
+  github.rest.issues.createComment = async (args) => {
+    const r = await origCreate(args);
+    // จำลองอีก run สร้างคอมเมนต์ของบอทแทรกเข้ามาพร้อมกัน
+    (comments[13] ||= []).push({
+      id: 999,
+      user: { login: 'github-actions[bot]' },
+      body: '### 🤖 Auto-assign Reviewer\n\n<!-- auto-review-state: {"v":1,"total":20,"needs":null} -->',
+    });
+    return r;
+  };
+
+  await run({ github, context: ctx(13), core });
+
+  assert.deepStrictEqual(calls.deleted, [999], 'ต้องลบใบที่แทรกเข้ามา');
+  const marked = comments[13].filter((c) => c.body.includes('auto-review-state'));
+  assert.strictEqual(marked.length, 1, 'เหลือคอมเมนต์ state ใบเดียว');
+  assert.notStrictEqual(marked[0].id, 999);
 });
 
 test('ไม่มีคนเลือกได้ (ทุกคนลา): ไม่ assign ใคร ติด label needs-reviewer', async () => {

@@ -270,6 +270,16 @@ async function run({ github, context, core }) {
     return { stats, ex, open };
   }
 
+  async function deleteBotComment(n, id) {
+    await mutate(`delete stale bot comment ${id} on #${n}`, async () => {
+      try {
+        await github.rest.issues.deleteComment({ owner, repo, comment_id: id });
+      } catch (e) {
+        if (e.status !== 404) throw e;
+      }
+    });
+  }
+
   async function upsertComment(n, existing, text, state) {
     const body = renderBody(text, state);
     if (existing) {
@@ -277,18 +287,18 @@ async function run({ github, context, core }) {
         await mutate(`update bot comment on #${n}`, () => github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body }));
       }
     } else {
-      await mutate(`create bot comment on #${n}`, () => github.rest.issues.createComment({ owner, repo, issue_number: n, body }));
-    }
-    // ลบคอมเมนต์ state ที่ซ้ำ/เก่ากว่า เพื่อให้เหลือใบเดียวและ state ต่อเนื่องไม่กำกวม
-    for (const id of existing?.dupes || []) {
-      await mutate(`delete stale bot comment ${id} on #${n}`, async () => {
-        try {
-          await github.rest.issues.deleteComment({ owner, repo, comment_id: id });
-        } catch (e) {
-          if (e.status !== 404) throw e;
+      const res = await mutate(`create bot comment on #${n}`, () => github.rest.issues.createComment({ owner, repo, issue_number: n, body }));
+      // กันชนกัน (race): ถ้าอีก run สร้างคอมเมนต์ของบอทแทรกมาพร้อมกัน ให้ลบใบที่ซ้ำทันที เหลือ state ใบเดียว
+      const createdId = res?.data?.id ?? null;
+      if (createdId) {
+        const cs = await listAll(github.rest.issues.listComments, { issue_number: n });
+        for (const c of cs) {
+          if (c.id !== createdId && c.user?.login === BOT_LOGIN && c.body?.includes(MARK)) await deleteBotComment(n, c.id);
         }
-      });
+      }
     }
+    // ลบคอมเมนต์ state ที่ซ้ำ/เก่ากว่า (กรณีมีอยู่ก่อนแล้ว) เพื่อให้เหลือใบเดียวและ state ต่อเนื่องไม่กำกวม
+    for (const id of existing?.dupes || []) await deleteBotComment(n, id);
   }
 
   async function syncLabel(pr, name, on, color, description) {
