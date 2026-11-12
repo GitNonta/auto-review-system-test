@@ -91,13 +91,19 @@ B: ผ่าน — B1 dry_run=true บน main, B2 PR #3 ไม่มี review
    (run https://github.com/GitNonta/auto-review-system-test/actions/runs/43166082276)
    B3 workflow_dispatch mode=report = success (run https://github.com/GitNonta/auto-review-system-test/actions/runs/43166126933)
    B4 ตั้ง dry_run กลับเป็น false บน main แล้ว
-C01..C25: ยังไม่ผ่าน (blocked) — repo ทดสอบมี collaborator ที่ accept แล้ว 1 คน (GitNonta) อีก 2 คน (Nontawatpkru17, Themynon2)
-   ยังเป็น invitation ค้าง (201) จึงเรียก requestReviewers ได้ 422 → บอทเข้าทาง 4.8 (คอมเมนต์ "ขอ Reviewer ไม่สำเร็จ" + label needs-reviewer)
-   ซึ่งยืนยันว่าการจัดการ error ทำงาน แต่ยังพิสูจน์การ assign จริงไม่ได้จนกว่าจะมีคน accept + ผู้เขียนคนที่สอง
+C01..C05: รันจริงแล้ว 4/5 ผ่าน (Nontawatpkru17 accept invitation แล้ว, Themynon2 ยังค้าง)
+   C01 PASS — PR #4: reviewer = Nontawatpkru17 (ไม่ใช่ผู้เขียน), คอมเมนต์บอท "บอทเลือก · Score 0", total=100
+   C02 PASS — PR #5 ตอน Draft: reviewers/คอมเมนต์/label ว่างทั้งหมด (log "ข้าม (draft...)")
+   C03 FAIL — PR #5 หลัง markPullRequestReadyForReview: run ทำงาน (total=100) แต่ added=[] เพราะบอทเลือก Themynon2 (Score 0)
+        ซึ่งยังเป็น invitation ค้าง → requestReviewers 422 ทั้งชุด → ไม่มี reviewer
+   C04 PASS — PR #6: reviewer = Nontawatpkru17, GitNonta (author) ไม่ถูกเลือก
+   C05 PASS — PR #7: total=50 (package-lock.json 5,000 บรรทัดไม่ถูกนับ) — แต่ assignment ล้มด้วยเหตุเดียวกับ C03
+C06..C25: ยังไม่รัน (ต้องรอ Themynon2 accept หรือตัดออกจาก team)
 D: ยังไม่เริ่ม (ต้องมี C ผ่านก่อน)
 ปัญหาที่พบ / ข้อเสนอแก้:
-1) dry_run ต้องอยู่บน default branch จริง — commit แรกหลุดไปอยู่ branch ทดสอบ ทำให้ run #2 คอมเมนต์จริง (แก้แล้ว, ทำงานถูกต้องเมื่อ dry_run อยู่บน main)
-2) pending invitation ไม่ทำให้ username เป็น reviewer ที่ขอได้ → ต้องให้ collaborator accept ก่อนทดสอบ C
+1) dry_run ต้องอยู่บน default branch จริง — commit แรกหลุดไปอยู่ branch ทดสอบ ทำให้ run #2 คอมเมนต์จริง (แก้แล้ว, ถูกต้องเมื่อ dry_run อยู่บน main)
+2) **บั๊กสำคัญ**: team มีคนที่ยังไม่ใช่ collaborator (invite ค้าง) → chooseReviewer เลือกคนนั้นเพราะ Score 0 แล้ว requestReviewers ล้มทั้งชุด
+   แม้มี candidate ที่ขอได้จริง แนะนำแก้: กรอง team ด้วย collaborators API หรือ retry ทีละคนเมื่อได้ 422
 3) Node 20 deprecation warning ของ actions/* (2026): ยังใช้ได้ แต่ควรอัปเกรดเมื่อ actions รองรับ
 4) Summary ของ B3 ตรวจจาก API ไม่ได้ (Job Summary ไม่มี endpoint) — ตรวจได้แค่ว่า run success และตารางถูกสร้างจากฟังก์ชัน report() ที่ unit-test ผ่าน
 ```
