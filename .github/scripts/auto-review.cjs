@@ -159,9 +159,14 @@ async function run({ github, context, core }) {
     return false;
   });
   if (dropped.length) core.warning(`ข้ามสมาชิกที่ยังไม่ใช่ collaborator: ${dropped.map(nameOf).join(', ')}`);
-  if (team.length < 2) {
-    core.setFailed('auto-review.yml: team ต้องมีสมาชิกอย่างน้อย 2 คน');
+  if (team.length === 0) {
+    core.setFailed('auto-review.yml: ไม่มีสมาชิกใน team ที่เป็น collaborator ของ repo');
     return;
+  }
+  if (team.length < 2) {
+    // โปรเจคจริงมักมีคำเชิญที่ยังไม่ถูกตอบรับ: ไม่ควรทำให้ workflow แดงทุก PR
+    // ปล่อยให้ไหลไปทาง 'ไม่มีคนว่าง' แล้วติด label ให้คนมาเลือก reviewer เอง
+    core.warning(`team หลังกรอง collaborator เหลือ ${team.length} คน (ต้องมีอย่างน้อย 2) — จะติด label ${cfg.labels.needs_reviewer} แทนการล้ม workflow`);
   }
   const teamIdx = Object.fromEntries(team.map((l, i) => [l, i]));
   const inTeam = (l) => Object.prototype.hasOwnProperty.call(teamIdx, l);
@@ -408,6 +413,7 @@ async function run({ github, context, core }) {
     if (requestFailed) T.push('- ⚠️ บอทขอ Reviewer ไม่สำเร็จ (ตรวจสอบสิทธิ์ของสมาชิกใน repo) กรุณาเลือกเอง');
     if (needsKey) {
       const why = [`ผู้เขียน @${nameOf(author)} ถูกตัดออก`];
+      if (dropped.length) why.push(`ยังไม่ใช่ collaborator (ยังไม่ได้รับคำเชิญ): ${dropped.map(nameOf).join(', ')}`);
       if (unavailable.size) why.push(`ไม่พร้อม/ลา: ${[...unavailable].map(nameOf).join(', ')}`);
       T.push(`- ⏳ ${needsKey === 'needs_reviewer' ? 'ยังไม่มี Reviewer' : 'ยังขาด Reviewer คนที่สอง'}: ไม่มีสมาชิกที่พร้อมรับงาน (${why.join(' · ')}) บอทจะลองใหม่ทุกวัน หรือเลือก Reviewer เอง`);
     }
