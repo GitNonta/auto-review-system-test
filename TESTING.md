@@ -141,7 +141,7 @@ C18 PASS — PR #23: ตั้ง pending_cap = 50 → ทุกคนเกิ�
 C19 PASS — PR #28: pending_weight = 0 ทำให้ Score = C: Nontawat 550 vs Themynon2 400 (ห่าง 150 < 300) → อยู่กลุ่ม tie
         บอทเลือก Nontawatpkru17 ซึ่งเป็นคนที่รีวิว author นานสุด (06:56:16 เทียบกับ Themynon2 06:57:46)
         (run 43173473532) — คืน pending_weight = 2 แล้ว
-        * ทั้งสองคนส่ง APPROVED บน PR #4/#7/#9 เอง podczas 06:53–06:57 จึงมีประวัติให้ทดสอบ
+        * ทั้งสองคนส่ง APPROVED บน PR #4/#7/#9 เองในช่วง 06:53–06:57 จึงมีประวัติให้ทดสอบ
 C20 PASS (มีข้อสังเกต) — PR #29/#30/#31: pending_weight = 0 + history_days = 0 → Score = 0 ทุกคน
         ผล: Themynon2, Nontawatpkru17, Nontawatpkru17 — มี 2 คนหมุนเวียน (ไม่ซ้ำคนเดียว) แต่ไม่สลับ 1:1
         เพราะ RR ใช้ index ใน `team` (3 คน) ทั้งที่ author ถูกตัดออก → 2 ใน 3 ครั้งตกที่คนเดียวกัน
