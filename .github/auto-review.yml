@@ -10,7 +10,11 @@ team:
   - Themynon2
 
 # สมาชิกที่ลา/ไม่พร้อม จะถูกข้ามชั่วคราว ใส่ until (YYYY-MM-DD) เพื่อให้กลับมาเองอัตโนมัติ
-unavailable: []
+unavailable:
+  - login: Themynon2
+    until: 2099-12-31
+  - login: Nontawatpkru17
+    until: 2026-11-11
 #  - login: bob
 #    until: 2026-11-20
 
