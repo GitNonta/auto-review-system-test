@@ -10,7 +10,7 @@ team:
   - Themynon2
 
 # สมาชิกที่ลา/ไม่พร้อม จะถูกข้ามชั่วคราว ใส่ until (YYYY-MM-DD) เพื่อให้กลับมาเองอัตโนมัติ
-unavailable:
+unavailable: []
   - login: Nontawatpkru17
   - login: Themynon2
   - login: Themynon2
