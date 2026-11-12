@@ -18,7 +18,7 @@ Acceptance Criteria ของงาน
 | ไฟล์ | หน้าที่ |
 |---|---|
 | `.github/workflows/auto-assign-reviewer.yml` | Workflow (trigger, permissions, concurrency) |
-| `.github/scripts/auto-review.js` | Logic ทั้งหมด (โหลดผ่าน `actions/github-script`) |
+| `.github/scripts/auto-review.cjs` | Logic ทั้งหมด (โหลดผ่าน `actions/github-script`) |
 | `.github/auto-review.yml` | Config ทั้งหมด (ทีม, ลา, threshold, ไฟล์ที่ยกเว้น) |
 | `.github/pull_request_template.md` | PR Template 3 บรรทัด |
 | `.github/scripts/auto-review.test.js` | Unit test ของฟังก์ชันล้วน |

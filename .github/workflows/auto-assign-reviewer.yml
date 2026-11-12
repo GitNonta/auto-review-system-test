@@ -51,5 +51,5 @@ jobs:
           DRY_RUN: ${{ github.event.inputs.dry_run }}
         with:
           script: |
-            const run = require('./.github/scripts/auto-review.js');
+            const run = require('./.github/scripts/auto-review.cjs');
             await run({ github, context, core });

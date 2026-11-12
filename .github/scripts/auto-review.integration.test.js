@@ -4,7 +4,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
 const path = require('path');
-const run = require('./auto-review.js');
+const run = require('./auto-review.cjs');
 
 process.env.GITHUB_WORKSPACE = path.resolve(__dirname, '../..');
 

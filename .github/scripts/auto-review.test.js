@@ -2,7 +2,7 @@
 // รัน: node --test .github/scripts/
 const test = require('node:test');
 const assert = require('node:assert');
-const { pure } = require('./auto-review.js');
+const { pure } = require('./auto-review.cjs');
 const { globToRegex, splitFiles, chooseReviewer, gap, parseState, renderBody, DEFAULTS } = pure;
 
 const cfg = { ...DEFAULTS };
