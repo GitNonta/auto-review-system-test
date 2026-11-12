@@ -11,13 +11,6 @@ team:
 
 # สมาชิกที่ลา/ไม่พร้อม จะถูกข้ามชั่วคราว ใส่ until (YYYY-MM-DD) เพื่อให้กลับมาเองอัตโนมัติ
 unavailable: []
-  - login: Nontawatpkru17
-  - login: Nontawatpkru17
-  - login: Themynon2
-  - login: Themynon2
-    until: 2099-12-31
-  - login: Nontawatpkru17
-    until: 2026-11-11
 #  - login: bob
 #    until: 2026-11-20
 
