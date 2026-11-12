@@ -123,9 +123,10 @@ C10 PASS — PR #13: ภาระค้าง B = 1,596 บรรทัด ส�
 C11 PASS — PR #14: B (Nontawatpkru17) ถือ PR ค้าง 500 บรรทัด, P รวม = 2,096 → Score 4,192 vs Themynon2 = 1,334 → 2,668
         เปิด PR ใหม่ 3 อัน (#15,#16,#17) → บอทเลือก Themynon2 ทั้ง 3 ครั้ง (Score 2,668 → 2,868 → 3,068) ไม่เลือก B เลย
         ยืนยันว่างานค้างถูกถ่วง ×2 จริง (run 43170413379, 43170591464, 43170639444, 43170679671)
-C12 BLOCKED — ต้องให้ Nontawatpkru17 ส่ง review บน PR #14 (Approve/Comment) เอง เพราะ token ที่มีเป็นของ GitNonta
-        (สคริปต์กรอง review ของ author ออกอยู่แล้ว การรีวิว PR ตัวเองแทนจึงไม่นับ)
-        เมื่อ B ส่ง review แล้ว: รัน workflow_dispatch mode=report → คาด P ลด 500, C เพิ่ม 500, ผลรวมคงที่ 2,096
+C12 PASS — Nontawatpkru17 กด APPROVED บน PR #14 เมื่อ 07:39:11 → 500 บรรทัดย้ายจาก P ไป C
+        คำนวณจาก API หลังรีวิว: Nontawat C=1,550 / P=2,446 (C+P = 3,996 คงที่, PR #14 นับเป็น C 500 ไม่ใช่ P)
+        รัน workflow_dispatch mode=report = success (run 43177096555) — ไม่นับซ้ำ
+        * ก่อนหน้านี้จำลองแทนไม่ได้เพราะ token เป็นของ GitNonta (author) และโค้ดตัด review ของ author ออก
 C13 PASS — PR #18: commit `unavailable: [{login: Nontawatpkru17, until: 2026-12-31}]` บน main → บอทเลือก Themynon2 ไม่เลือก B
         (run 43170797190) — คืน config กลับเป็น `unavailable: []` แล้วและยืนยันเนื้อหาไฟล์
 C14 PASS — PR #19: unavailable มี Nontawatpkru17 แต่ until = 2026-11-11 (เมื่อวาน) และ Themynon2 ลาถึง 2099-12-31
@@ -161,7 +162,7 @@ C24 PASS — PR #23: ตั้ง overdue_hours = 0.02 → sweep run 49 เต�
 C25 PASS — PR #33: GitNonta โพสต์ marker ปลอม (total 9999, bot ["themynon2"]) ก่อน Ready → บอทไม่เชื่อ
         สร้างคอมเมนต์ของตัวเอง total=100, lines {themynon2:100}, assign Themynon2 (run 43175217898)
 
-สรุปหมวด C: ผ่าน 20/21 (C12 รอ collaborator รีวิว PR #14)
+สรุปหมวด C: ผ่าน 21/21
 D: ยังไม่เริ่ม (ต้องมี C ผ่านก่อน)
 ปัญหาที่พบ / ข้อเสนอแก้:
 1) dry_run ต้องอยู่บน default branch จริง — commit แรกหลุดไปอยู่ branch ทดสอบ ทำให้ run #2 คอมเมนต์จริง (แก้แล้ว, ถูกต้องเมื่อ dry_run อยู่บน main)
