@@ -72,4 +72,4 @@ report:
   weekday: Mon
 
 # true = บอทไม่แก้ไขอะไรจริง แค่เขียนสิ่งที่จะทำลง Job Summary (ใช้ตอนทดสอบ)
-dry_run: false
+dry_run: true
