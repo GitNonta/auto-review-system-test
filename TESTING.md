@@ -118,7 +118,15 @@ C09 PASS — PR #12: 800 บรรทัด author เลือก Nontawatpkru1
 C10 PASS — PR #13: ภาระค้าง B = 1,596 บรรทัด สูงกว่า Themynon2 = 1,234 → บอทเลือก Themynon2 (Score 2468)
         (run 43169959265) — ยืนยันว่าบรรทัดที่ author เลือกเองถูกนับเข้า Score จริง
         * ข้อสังเกต: สะสม PR ทดสอบเยอะ ทำให้ pending_cap (800) ถูกเกินทุกคน บอทจึงขี้น ⚠️ งานค้างเกินเพดาน
-C11..C25: ยังไม่รัน
+C11 PASS — PR #14: B (Nontawatpkru17) ถือ PR ค้าง 500 บรรทัด, P รวม = 2,096 → Score 4,192 vs Themynon2 = 1,334 → 2,668
+        เปิด PR ใหม่ 3 อัน (#15,#16,#17) → บอทเลือก Themynon2 ทั้ง 3 ครั้ง (Score 2,668 → 2,868 → 3,068) ไม่เลือก B เลย
+        ยืนยันว่างานค้างถูกถ่วง ×2 จริง (run 43170413379, 43170591464, 43170639444, 43170679671)
+C12 BLOCKED — ต้องให้ Nontawatpkru17 ส่ง review บน PR #14 (Approve/Comment) เอง เพราะ token ที่มีเป็นของ GitNonta
+        (สคริปต์กรอง review ของ author ออกอยู่แล้ว การรีวิว PR ตัวเองแทนจึงไม่นับ)
+        เมื่อ B ส่ง review แล้ว: รัน workflow_dispatch mode=report → คาด P ลด 500, C เพิ่ม 500, ผลรวมคงที่ 2,096
+C13 PASS — PR #18: commit `unavailable: [{login: Nontawatpkru17, until: 2026-12-31}]` บน main → บอทเลือก Themynon2 ไม่เลือก B
+        (run 43170797190) — คืน config กลับเป็น `unavailable: []` แล้วและยืนยันเนื้อหาไฟล์
+C14..C25: ยังไม่รัน
 D: ยังไม่เริ่ม (ต้องมี C ผ่านก่อน)
 ปัญหาที่พบ / ข้อเสนอแก้:
 1) dry_run ต้องอยู่บน default branch จริง — commit แรกหลุดไปอยู่ branch ทดสอบ ทำให้ run #2 คอมเมนต์จริง (แก้แล้ว, ถูกต้องเมื่อ dry_run อยู่บน main)
