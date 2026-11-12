@@ -126,7 +126,17 @@ C12 BLOCKED — ต้องให้ Nontawatpkru17 ส่ง review บน PR 
         เมื่อ B ส่ง review แล้ว: รัน workflow_dispatch mode=report → คาด P ลด 500, C เพิ่ม 500, ผลรวมคงที่ 2,096
 C13 PASS — PR #18: commit `unavailable: [{login: Nontawatpkru17, until: 2026-12-31}]` บน main → บอทเลือก Themynon2 ไม่เลือก B
         (run 43170797190) — คืน config กลับเป็น `unavailable: []` แล้วและยืนยันเนื้อหาไฟล์
-C14..C25: ยังไม่รัน
+C14 PASS — PR #19: unavailable มี Nontawatpkru17 แต่ until = 2026-11-11 (เมื่อวาน) และ Themynon2 ลาถึง 2099-12-31
+        → บอทเลือก Nontawatpkru17 (ถ้า until ยังไม่หมดอายุ จะไม่มีใครถูกเลือกเลย) (run 43171186403)
+C15 PASS — PR #20: unavailable ทั้ง Nontawatpkru17 และ Themynon2 → ไม่มี reviewer, ไม่ assign author,
+        label needs-reviewer, คอมเมนต์ "ยังไม่มี Reviewer ... ไม่พร้อม/ลา: ..." (run 43171274922)
+C16 PASS — เอา unavailable ออกแล้ว dispatch mode=sweep → PR #20 ได้ Themynon2, label needs-reviewer ถูกลบ, needs=null
+        (sweep จัด PR ค้างอื่นต่อด้วย: #21, #5, #3, #1) (run 43171630706)
+C17 PASS — PR #22: ให้ Nontawatpkru17 ลา เหลือ Themynon2 คนเดียว + PR 800 บรรทัด → assign 1 คน
+        label needs-second-reviewer, คอมเมนต์ "ยังขาด Reviewer คนที่สอง" (run 43171760790)
+        * บทเรียนระหว่างทดสอบ: สคริปต์ของ agent แทน YAML ผิด (เหลือบรรทัด - login ค้าง) ทำให้ run #32 ล้มด้วย YAMLException
+          — ไม่ใช่บั๊กของ auto-review.js แต่ต้อง validate YAML ทุกครั้งหลังแก้ config (แก้แล้วผ่าน)
+C18..C25: ยังไม่รัน
 D: ยังไม่เริ่ม (ต้องมี C ผ่านก่อน)
 ปัญหาที่พบ / ข้อเสนอแก้:
 1) dry_run ต้องอยู่บน default branch จริง — commit แรกหลุดไปอยู่ branch ทดสอบ ทำให้ run #2 คอมเมนต์จริง (แก้แล้ว, ถูกต้องเมื่อ dry_run อยู่บน main)
