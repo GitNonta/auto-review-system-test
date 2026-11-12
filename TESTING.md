@@ -85,12 +85,21 @@ node --test .github/scripts/auto-review.integration.test.js
 
 ## รายงานผล (ให้ agent กรอก)
 ```
-สภาพแวดล้อม: repo / วันที่ / ผู้ทดสอบ
-A: unit __/11, integration __/8
-B: dry-run ผ่าน/ไม่ผ่าน (ลิงก์ Run)
-C01..C25: ผ่าน/ไม่ผ่าน + ลิงก์
-D: Gap = __%, คู่ที่ยังไม่เคยรีวิวกัน = __
+สภาพแวดล้อม: GitNonta/auto-review-system-test (private) / 2026-11-12 / Buffy (agent) บน Node v22
+A: unit 11/11, integration 8/8
+B: ผ่าน — B1 dry_run=true บน main, B2 PR #3 ไม่มี reviewer/คอมเมนต์/label และ log แสดง "[dry-run] request reviewers [Nontawatpkru17]"
+   (run https://github.com/GitNonta/auto-review-system-test/actions/runs/43166082276)
+   B3 workflow_dispatch mode=report = success (run https://github.com/GitNonta/auto-review-system-test/actions/runs/43166126933)
+   B4 ตั้ง dry_run กลับเป็น false บน main แล้ว
+C01..C25: ยังไม่ผ่าน (blocked) — repo ทดสอบมี collaborator ที่ accept แล้ว 1 คน (GitNonta) อีก 2 คน (Nontawatpkru17, Themynon2)
+   ยังเป็น invitation ค้าง (201) จึงเรียก requestReviewers ได้ 422 → บอทเข้าทาง 4.8 (คอมเมนต์ "ขอ Reviewer ไม่สำเร็จ" + label needs-reviewer)
+   ซึ่งยืนยันว่าการจัดการ error ทำงาน แต่ยังพิสูจน์การ assign จริงไม่ได้จนกว่าจะมีคน accept + ผู้เขียนคนที่สอง
+D: ยังไม่เริ่ม (ต้องมี C ผ่านก่อน)
 ปัญหาที่พบ / ข้อเสนอแก้:
+1) dry_run ต้องอยู่บน default branch จริง — commit แรกหลุดไปอยู่ branch ทดสอบ ทำให้ run #2 คอมเมนต์จริง (แก้แล้ว, ทำงานถูกต้องเมื่อ dry_run อยู่บน main)
+2) pending invitation ไม่ทำให้ username เป็น reviewer ที่ขอได้ → ต้องให้ collaborator accept ก่อนทดสอบ C
+3) Node 20 deprecation warning ของ actions/* (2026): ยังใช้ได้ แต่ควรอัปเกรดเมื่อ actions รองรับ
+4) Summary ของ B3 ตรวจจาก API ไม่ได้ (Job Summary ไม่มี endpoint) — ตรวจได้แค่ว่า run success และตารางถูกสร้างจากฟังก์ชัน report() ที่ unit-test ผ่าน
 ```
 
 ## ปัญหาที่พบบ่อย
