@@ -111,7 +111,14 @@ C07 PASS — PR #10: เปิด 100 บรรทัด → reviewer 1 คน (
         บอทเพิ่ม Themynon2 เป็นคนที่สอง, คอมเมนต์เดิมถูกอัปเดต (1 อันเท่าเดิม id ไม่เปลี่ยน) total=800 แบ่ง 334/466
         (run https://github.com/GitNonta/auto-review-system-test/actions/runs/43169304130)
         * push 3 ไฟล์ติดกันทำให้เกิด 3 run ซ้อน (concurrency cancel-in-progress=false) รอบสุดท้ายจัดการ state 800 ถูกต้อง
-C08..C25: ยังไม่รัน
+C08 PASS — PR #11: draft, author ขอ Nontawatpkru17 เอง แล้ว Ready → บอทไม่เพิ่มใคร
+        คอมเมนต์: "@Nontawatpkru17 (เลือกเอง/รีวิวแล้ว)", state.bot=[] และ lines = 100 ของ B (run 43169710992)
+C09 PASS — PR #12: 800 บรรทัด author เลือก Nontawatpkru17 เอง → บอทเพิ่ม Themynon2 อีก 1 คน
+        แบ่งขอบเขต 400/400 คนละ 2 ไฟล์ (ครบ 4 ไฟล์), คอมเมนต์ระบุ B "เลือกเอง" (run 43169852007)
+C10 PASS — PR #13: ภาระค้าง B = 1,596 บรรทัด สูงกว่า Themynon2 = 1,234 → บอทเลือก Themynon2 (Score 2468)
+        (run 43169959265) — ยืนยันว่าบรรทัดที่ author เลือกเองถูกนับเข้า Score จริง
+        * ข้อสังเกต: สะสม PR ทดสอบเยอะ ทำให้ pending_cap (800) ถูกเกินทุกคน บอทจึงขี้น ⚠️ งานค้างเกินเพดาน
+C11..C25: ยังไม่รัน
 D: ยังไม่เริ่ม (ต้องมี C ผ่านก่อน)
 ปัญหาที่พบ / ข้อเสนอแก้:
 1) dry_run ต้องอยู่บน default branch จริง — commit แรกหลุดไปอยู่ branch ทดสอบ ทำให้ run #2 คอมเมนต์จริง (แก้แล้ว, ถูกต้องเมื่อ dry_run อยู่บน main)
