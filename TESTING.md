@@ -1,0 +1,103 @@
+# TESTING: ขั้นตอนทดสอบระบบ Auto-assign Reviewer
+
+ทดสอบเป็นลำดับ A → B → C → D ถ้าหมวดก่อนหน้าไม่ผ่าน อย่าไปต่อ
+
+## ข้อกำหนดก่อนเริ่ม
+- **Repo ทดสอบแยกต่างหาก** (ห้ามลองกับ repo จริงก่อน) มีบัญชีที่เป็น collaborator อย่างน้อย 4 คน (A, B, C, D) ถ้าไม่มีให้ใช้เพื่อนร่วมทีมช่วยกดเปิด PR/รีวิว
+- ไฟล์ทั้งหมดอยู่บน **default branch** แล้ว (`pull_request_target` ใช้ workflow จาก default branch เท่านั้น)
+- `team` ใน `.github/auto-review.yml` เป็น username จริงของทั้ง 4 คน
+- Settings → Actions → General → Workflow permissions: Read and write
+- เครื่องมือบนเครื่อง: Node 20+, git, (ตัวเลือก) `gh` CLI
+
+### สคริปต์ช่วยสร้าง PR ขนาดตามต้องการ
+```bash
+# ใช้: mkpr <branch> <จำนวนบรรทัด> [ไฟล์]   (รันใน repo ทดสอบ)
+mkpr() {
+  git checkout -q main && git pull -q && git checkout -q -b "$1"
+  f="${3:-src/gen_$1.txt}"; mkdir -p "$(dirname "$f")"
+  seq 1 "$2" | sed 's/^/line /' > "$f"
+  git add . && git commit -qm "test $1 ($2 lines)" && git push -q -u origin "$1"
+  gh pr create --fill --base main --head "$1"
+  git checkout -q main
+}
+# ตัวอย่าง: mkpr t01 100        # PR 100 บรรทัด
+#           mkpr t06 800        # PR 800 บรรทัด
+# สร้างไฟล์หลายไฟล์: เรียก seq/sed หลายครั้งใน branch เดียวกันก่อน commit
+```
+ถ้าจะสร้าง PR ในนามผู้เขียนคนอื่น ให้ให้คนนั้น push เอง หรือ login ด้วย `gh auth switch`
+
+## A. Unit และ Integration (ไม่ต้องใช้ GitHub จริง)
+```bash
+npm install --no-save js-yaml@4.1.0
+node --test .github/scripts/auto-review.test.js
+node --test .github/scripts/auto-review.integration.test.js
+```
+ต้องผ่านทั้งหมด (unit 11, integration 8 ข้อ) ถ้ามีข้อล้ม ห้ามไปต่อ
+ครอบคลุม: glob ไฟล์ยกเว้น, แบ่งขอบเขตไฟล์, เลือก Score ต่ำสุด, งานค้าง ×2, tie-break ด้วย Exchange Matrix, Round-Robin, เพดานงานค้าง, Gap, marker, จำลอง 80 PR (Gap ≤ 20%), เปิด PR เล็ก/ใหญ่, เลือกเอง, Draft, รันซ้ำ, synchronize, ทุกคนลา
+
+## B. Dry-run บน GitHub จริง
+1. ตั้ง `dry_run: true` ใน `.github/auto-review.yml` (merge เข้า default branch)
+2. เปิด PR ทดสอบ 1 อัน → ดู Run → Summary ต้องแสดงรายการ "Dry-run: สิ่งที่บอทจะทำ" และ **PR ต้องไม่มี Reviewer และไม่มีคอมเมนต์จากบอท**
+3. Actions → Auto-assign Reviewer → Run workflow → `mode=report` → Summary ต้องมีตารางภาระ, ค่า Gap, และ Exchange Matrix
+4. ตั้ง `dry_run: false` แล้ว merge กลับ
+
+## C. ทดสอบจริง (ทุกข้อต้องมีหลักฐาน: ลิงก์ PR หรือ Run)
+ก่อนเริ่มให้ปิด PR ทดสอบเก่าทั้งหมด (หรือใช้ `history_days` สั้นเพื่อล้างผลกระทบของ Score เดิม) และบันทึก Score เริ่มต้นจากรายงาน
+
+| รหัส | สถานการณ์ | วิธีทำ | ผลที่คาดหวัง |
+|---|---|---|---|
+| C01 | เปิด PR ปกติ | A เปิด PR 100 บรรทัด | มี Reviewer 1 คน ไม่ใช่ A มีคอมเมนต์บอทพร้อมเหตุผล |
+| C02 | Draft | A เปิดเป็น Draft | ไม่มี Reviewer ไม่มีคอมเมนต์ |
+| C03 | Draft → Ready | กด Ready for review จาก C02 | บอทเลือก 1 คน ตามขนาด ณ เวลานั้น |
+| C04 | Author ไม่ถูกเลือก | ให้ A มี Score ต่ำสุด แล้วให้ A เปิด PR | Reviewer ไม่ใช่ A |
+| C05 | ไฟล์ที่ไม่นับ | PR มี `package-lock.json` 5,000 บรรทัด + โค้ด 50 บรรทัด | คอมเมนต์ระบุขนาด 50 บรรทัด |
+| C06 | PR ใหญ่ | PR 800 บรรทัด หลายไฟล์ | Reviewer 2 คน ขอบเขตไฟล์ไม่ซ้ำ รวมครบทุกไฟล์ บรรทัดของสองคนใกล้เคียงกัน |
+| C07 | PR โตหลังเปิด | เปิด PR 100 บรรทัด แล้ว push เพิ่มเป็น 800 | เพิ่ม Reviewer คนที่สอง คอมเมนต์อัปเดตที่เดิม (ไม่สร้างใหม่) |
+| C08 | เลือกเอง ครบแล้ว | A เลือก B เองใน PR เล็ก | บอทไม่เพิ่มใคร B ยังอยู่ คอมเมนต์ระบุ "เลือกเอง" |
+| C09 | เลือกเอง ไม่ครบ | A เลือก B เองใน PR 800 บรรทัด | B อยู่ต่อ บอทเพิ่ม 1 คน ขอบเขตแบ่งให้ทั้งคู่ |
+| C10 | ภาระนับจากคนเลือกเอง | หลัง C08 เปิด PR ใหม่ | Score ของ B สูงขึ้น (ดูรายงาน) บอทเลือกคนอื่นที่ต่ำกว่า |
+| C11 | งานค้างถูกถ่วง ×2 | B ถือ PR ใหญ่ค้างไว้ไม่รีวิว แล้วเปิด PR ใหม่หลายอัน | บอทเลี่ยง B จนกว่า Score ของคนอื่นไล่ทัน |
+| C12 | รีวิวเสร็จแล้วยอดย้ายจาก P → C | ให้ B ส่ง review PR ที่ค้าง แล้วรัน report | P ของ B ลด C เพิ่ม ผลรวมไม่เปลี่ยน (ไม่นับซ้ำ) |
+| C13 | คนลา | ใส่ B ใน `unavailable` (merge) แล้วเปิด PR | ไม่เลือก B |
+| C14 | กลับจากลาอัตโนมัติ | ตั้ง `until` เป็นเมื่อวาน | B กลับมาเป็นตัวเลือก |
+| C15 | ไม่มีใครเลือกได้ | ใส่ B, C, D ลา แล้ว A เปิด PR | ไม่มี Reviewer ไม่ assign A มี label `needs-reviewer` คอมเมนต์แจ้ง |
+| C16 | กลับมาแล้วจัดให้เอง | เอา B ออกจาก `unavailable` แล้วรัน `workflow_dispatch` mode `sweep` | B ถูก assign label `needs-reviewer` ถูกลบ |
+| C17 | ขาดคนที่สอง | ให้ลาจนเหลือผู้เลือกได้ 1 คน แล้วเปิด PR 800 บรรทัด | assign 1 คน label `needs-second-reviewer` |
+| C18 | ทุกคนงานค้างเกินเพดาน | ตั้ง `pending_cap` ต่ำ (เช่น 50) แล้วเปิด PR | assign คน Score ต่ำสุด คอมเมนต์เตือนทีมงานล้น |
+| C19 | สลับคู่ | ให้ Score ใกล้กัน (ห่าง < 300) และคนหนึ่งเพิ่งรีวิว Author นี้ | บอทเลือกคนที่ไม่ได้รีวิว Author นี้นานสุด |
+| C20 | Round-Robin | ตอนที่ทุกคน Score เท่ากันและไม่มีประวัติ เปิด PR ต่อเนื่อง | ผู้รีวิวหมุนเวียน ไม่ซ้ำคนเดียว |
+| C21 | ข้ามบอท | ติด label `no-auto-review` ก่อนเปิด/ก่อน Ready | บอทไม่ทำอะไร |
+| C22 | ผู้เขียนเป็น Bot/คนนอก | เปิด PR ด้วยบัญชีนอก `team` (หรือ Dependabot) | บอทข้าม |
+| C23 | รันซ้ำ | กด Reopen / Draft → Ready ซ้ำ / push เพิ่ม | ไม่มี Reviewer เพิ่ม ไม่มีคอมเมนต์ซ้ำ |
+| C24 | เตือนงานเกินเวลา | ตั้ง `overdue_hours: 0.02` ให้ B ค้าง แล้วรัน sweep | บอทคอมเมนต์เตือน 1 ครั้ง เสนอคนต่ำสุด **ไม่เปลี่ยน Reviewer** รัน sweep ซ้ำไม่เตือนซ้ำ |
+| C25 | marker ปลอม | ให้คนอื่นคอมเมนต์ข้อความที่มี marker ปลอมใน PR | บอทไม่เชื่อ (ใช้เฉพาะคอมเมนต์ของ github-actions[bot]) |
+
+เกณฑ์ผ่าน: ทุกแถวได้ผลตามที่คาดหวัง และไม่มีครั้งใดที่ Author ถูก assign เป็น Reviewer ของตัวเอง
+
+## D. ทดสอบความเท่าเทียมระยะยาว
+1. ใช้งานจริง 2 สัปดาห์ (หรือจำลอง 20-30 PR หลายขนาด 50-400 บรรทัด โดยผู้เขียนหมุนเวียน)
+2. รัน `workflow_dispatch` mode `report`
+3. ตรวจ
+   - Gap ≤ 20% (ถ้าเกินในช่วงแรกที่ PR น้อย ให้บันทึกและวัดใหม่เมื่อมี PR สะสมมากกว่า 20 อัน)
+   - Exchange Matrix: ทุกคู่ (ผู้รีวิว × ผู้เขียน) มีค่ามากกว่า 0 อย่างน้อย 1 ครั้งต่อเดือน
+   - ไม่มี PR ค้าง label `needs-reviewer` เกิน 1 วันโดยไม่มีเหตุผล
+4. เทียบกับสิ่งที่คาดไว้จากการจำลอง (unit test จำลอง 80 PR ได้ Gap ประมาณ 8%)
+
+## รายงานผล (ให้ agent กรอก)
+```
+สภาพแวดล้อม: repo / วันที่ / ผู้ทดสอบ
+A: unit __/11, integration __/8
+B: dry-run ผ่าน/ไม่ผ่าน (ลิงก์ Run)
+C01..C25: ผ่าน/ไม่ผ่าน + ลิงก์
+D: Gap = __%, คู่ที่ยังไม่เคยรีวิวกัน = __
+ปัญหาที่พบ / ข้อเสนอแก้:
+```
+
+## ปัญหาที่พบบ่อย
+| อาการ | สาเหตุที่น่าจะเป็น | วิธีแก้ |
+|---|---|---|
+| Workflow ไม่รันกับ PR | ไฟล์ยังไม่อยู่บน default branch | merge เข้า default ก่อน |
+| `Resource not accessible by integration` | Workflow permissions เป็น read-only | ตั้ง Read and write |
+| `requestReviewers` 422 | username ไม่ใช่ collaborator หรือพิมพ์ผิด | ตรวจ `team` และสิทธิ์ใน repo |
+| บอทไม่เลือกคนที่ Score ต่ำสุด | อยู่ในกลุ่ม `tie_threshold` จึงเลือกตามประวัติการแลกเปลี่ยน | ตั้งใจแล้ว ลด `tie_threshold` ถ้าต้องการเข้มขึ้น |
+| คอมเมนต์ของบอทซ้ำ | บัญชีที่คอมเมนต์ไม่ใช่ `github-actions[bot]` (เช่นใช้ PAT) | ใช้ `GITHUB_TOKEN` ปกติ หรือปรับ `BOT_LOGIN` |

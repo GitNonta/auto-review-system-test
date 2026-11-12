@@ -1,0 +1,75 @@
+# ตั้งค่าระบบ Auto-assign Reviewer (Equal Review Workload)
+# แก้ไฟล์นี้ผ่าน PR ตามปกติ ไม่ต้องแตะสคริปต์
+
+timezone: Asia/Bangkok
+
+# สมาชิกที่เป็น Reviewer ได้ (GitHub username) ต้องเป็น collaborator ของ repo
+team:
+  - GitNonta
+  - Nontawatpkru17
+  - Themynon2
+
+# สมาชิกที่ลา/ไม่พร้อม จะถูกข้ามชั่วคราว ใส่ until (YYYY-MM-DD) เพื่อให้กลับมาเองอัตโนมัติ
+unavailable: []
+#  - login: bob
+#    until: 2026-11-20
+
+# ---- สูตร Score = C + pending_weight * P ----
+history_days: 30        # C = บรรทัดที่รีวิวเสร็จในกี่วันล่าสุด
+pending_weight: 2       # น้ำหนักงานค้าง (P)
+pending_cap: 800        # งานค้างเกินนี้ถูกข้าม (ถ้าทุกคนเกิน บอทจะเลือกคนต่ำสุดและเตือน)
+
+# ---- การตัดสินเมื่อคะแนนใกล้เคียง ----
+tie_threshold: 300      # Score ห่างจากต่ำสุดไม่เกินนี้ ถือว่าใกล้เคียง -> เลือกคนที่ไม่ได้รีวิว Author นี้นานสุด
+                        # ถ้ายังเท่ากัน ใช้ Round-Robin
+
+# ---- PR ขนาดใหญ่ ----
+large_pr_threshold: 600 # เกินนี้ใช้ Reviewer หลายคน
+large_pr_reviewers: 2
+split_large_pr: true    # true = แบ่งไฟล์และนับตามบรรทัดที่ได้จริง, false = ทุกคนอ่านทั้ง PR และนับเต็ม
+
+# ---- เมื่อผู้เขียนเลือก Reviewer เอง ----
+# บอทไม่ลบ/ไม่ทับ และนับบรรทัดเข้า Score เสมอ
+balance_extra_reviewer: false # true = ถ้าคนที่เลือกเองมี Score สูงกว่าคนต่ำสุดเกิน balance_extra_gap ให้เพิ่มคนต่ำสุดอีก 1 คน
+balance_extra_gap: 300
+max_reviewers: 3
+
+# ---- การเตือน ----
+overdue_hours: 48       # เตือน (ไม่เปลี่ยนคนเอง) เมื่อ Reviewer ค้างเกินเวลา
+
+# ---- ขอบเขต ----
+allow_external_authors: false # false = ไม่ทำงานกับ PR ที่ผู้เขียนไม่อยู่ใน team (เช่น Bot/คนนอก)
+skip_labels:
+  - no-auto-review      # PR ที่ติด label นี้บอทจะไม่ยุ่ง
+
+# ไฟล์ที่ไม่นับบรรทัด (glob)
+exclude_patterns:
+  - "**/package-lock.json"
+  - "**/yarn.lock"
+  - "**/pnpm-lock.yaml"
+  - "**/composer.lock"
+  - "**/Gemfile.lock"
+  - "**/poetry.lock"
+  - "**/Cargo.lock"
+  - "**/go.sum"
+  - "**/*.min.js"
+  - "**/*.min.css"
+  - "**/*.generated.*"
+  - "**/*.snap"
+  - "**/__snapshots__/**"
+  - "**/*.svg"
+  - "**/dist/**"
+  - "**/build/**"
+
+labels:
+  needs_reviewer: needs-reviewer
+  needs_second_reviewer: needs-second-reviewer
+
+# รายงานประจำสัปดาห์ (Job Summary) รันทุกวันจันทร์ตาม timezone
+report:
+  enabled: true
+  issue: false          # true = สร้าง Issue รายงานด้วย
+  weekday: Mon
+
+# true = บอทไม่แก้ไขอะไรจริง แค่เขียนสิ่งที่จะทำลง Job Summary (ใช้ตอนทดสอบ)
+dry_run: false

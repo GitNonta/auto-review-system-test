@@ -1,0 +1,55 @@
+name: Auto-assign Reviewer
+
+# หมายเหตุ: pull_request_target รันไฟล์ workflow จาก default branch เสมอ
+# และ checkout โค้ดจาก base branch เท่านั้น (ห้ามเปลี่ยนเป็น checkout ของ PR head เพื่อความปลอดภัย)
+on:
+  pull_request_target:
+    types: [opened, reopened, ready_for_review, synchronize]
+  schedule:
+    - cron: '0 2 * * *' # 09:00 เวลาไทย: ลองจัด PR ที่ค้าง + เตือนงานเกินเวลา + รายงานวันจันทร์
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'sweep = ลองจัด PR ที่ค้างและเตือนงานเกินเวลา, report = สร้างรายงาน'
+        type: choice
+        options: [sweep, report]
+        default: sweep
+      dry_run:
+        description: 'dry-run (ไม่แก้ไขอะไรจริง)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: auto-review-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  assign:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout (base branch เท่านั้น)
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install js-yaml
+        run: npm install --no-save --no-package-lock js-yaml@4.1.0
+
+      - name: Run auto-review
+        uses: actions/github-script@v7
+        env:
+          MODE: ${{ github.event.inputs.mode }}
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
+        with:
+          script: |
+            const run = require('./.github/scripts/auto-review.js');
+            await run({ github, context, core });
