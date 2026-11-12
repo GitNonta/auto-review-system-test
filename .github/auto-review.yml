@@ -35,7 +35,7 @@ balance_extra_gap: 300
 max_reviewers: 3
 
 # ---- การเตือน ----
-overdue_hours: 48       # เตือน (ไม่เปลี่ยนคนเอง) เมื่อ Reviewer ค้างเกินเวลา
+overdue_hours: 0.02       # เตือน (ไม่เปลี่ยนคนเอง) เมื่อ Reviewer ค้างเกินเวลา
 
 # ---- ขอบเขต ----
 allow_external_authors: false # false = ไม่ทำงานกับ PR ที่ผู้เขียนไม่อยู่ใน team (เช่น Bot/คนนอก)
