@@ -85,8 +85,9 @@ function chooseReviewer({ candidates, stats, ex, author, teamIdx, prNumber, cfg,
   const last = (l) => ex[l]?.[author]?.last || 0;
   const oldest = Math.min(...group.map(last));
   const g2 = group.filter((l) => last(l) === oldest);
-  const n = Math.max(Object.keys(teamIdx).length, 1);
-  const rr = (l) => (((teamIdx[l] - (prNumber % n)) % n) + n) % n;
+  // Round-Robin หมุนตาม candidate pool จริง (ไม่ใช่ index ทั้ง team) เพื่อไม่ให้คนที่ไม่ได้เป็น candidate มากินสล็อต
+  const n = Math.max(candidates.length, 1);
+  const rr = (l) => (((candidates.indexOf(l) - (prNumber % n)) % n) + n) % n;
   g2.sort((a, b) => rr(a) - rr(b));
   return { login: g2[0], score: score(g2[0]), overloaded: under.length === 0 };
 }
@@ -140,9 +141,24 @@ async function run({ github, context, core }) {
   const { owner, repo } = context.repo;
   const cfg = loadConfig();
   const teamRaw = cfg.team.map((t) => (typeof t === 'string' ? t : t.login));
-  const team = [...new Set(teamRaw.map(norm))];
   const teamName = Object.fromEntries(teamRaw.map((l) => [norm(l), l]));
   const nameOf = (l) => teamName[l] || l;
+  // กรองให้เหลือเฉพาะ collaborator จริง: คำเชิญที่ยังไม่ accept ทำให้ requestReviewers ล้มทั้งชุด (422)
+  // อ่านรายชื่อไม่ได้ (เช่น token ไม่มีสิทธิ์) ให้ใช้ team ตาม config ต่อ
+  let collabSet = null;
+  try {
+    const collabs = await github.paginate(github.rest.repos.listCollaborators, { owner, repo, per_page: 100 });
+    collabSet = new Set(collabs.map((u) => norm(u.login)));
+  } catch (e) {
+    core.warning(`อ่านรายชื่อ collaborator ไม่ได้ (ใช้ team ตาม config): ${e.message}`);
+  }
+  const dropped = [];
+  const team = [...new Set(teamRaw.map(norm))].filter((l) => {
+    if (!collabSet || collabSet.has(l)) return true;
+    dropped.push(l);
+    return false;
+  });
+  if (dropped.length) core.warning(`ข้ามสมาชิกที่ยังไม่ใช่ collaborator: ${dropped.map(nameOf).join(', ')}`);
   if (team.length < 2) {
     core.setFailed('auto-review.yml: team ต้องมีสมาชิกอย่างน้อย 2 คน');
     return;
@@ -319,17 +335,31 @@ async function run({ github, context, core }) {
     }
 
     let requestFailed = false;
+    const requested = [];
     if (picks.length) {
+      const names = picks.map((p) => nameOf(p.login));
       try {
-        await mutate(`request reviewers [${picks.map((p) => nameOf(p.login)).join(', ')}] on #${n}`, () =>
-          github.rest.pulls.requestReviewers({ owner, repo, pull_number: n, reviewers: picks.map((p) => nameOf(p.login)) })
+        await mutate(`request reviewers [${names.join(', ')}] on #${n}`, () =>
+          github.rest.pulls.requestReviewers({ owner, repo, pull_number: n, reviewers: names })
         );
+        requested.push(...picks);
       } catch (e) {
-        requestFailed = true;
-        core.warning(`#${n}: requestReviewers ล้มเหลว: ${e.message}`);
+        // fallback: ขอทีละคน เพื่อไม่ให้คนเดียวล้มแล้วเสียทั้งชุด (เช่น username ที่ยังไม่ใช่ collaborator)
+        core.warning(`#${n}: requestReviewers ทั้งชุดล้มเหลว (${e.message}) — ลองทีละคน`);
+        for (const p of picks) {
+          try {
+            await mutate(`request reviewer [${nameOf(p.login)}] on #${n}`, () =>
+              github.rest.pulls.requestReviewers({ owner, repo, pull_number: n, reviewers: [nameOf(p.login)] })
+            );
+            requested.push(p);
+          } catch (e2) {
+            requestFailed = true;
+            core.warning(`#${n}: ขอ ${nameOf(p.login)} ไม่สำเร็จ: ${e2.message}`);
+          }
+        }
       }
     }
-    const added = requestFailed ? [] : picks;
+    const added = requested;
     const finalTeam = [...existingTeam, ...added.map((p) => p.login)];
     const shortBy = needed - finalTeam.length;
     const needsKey = shortBy > 0 ? (finalTeam.length === 0 ? 'needs_reviewer' : 'needs_second_reviewer') : null;

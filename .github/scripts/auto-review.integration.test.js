@@ -8,6 +8,18 @@ const run = require('./auto-review.js');
 
 process.env.GITHUB_WORKSPACE = path.resolve(__dirname, '../..');
 
+// ใช้ config ของเทสต์เอง (team สมมติ) ไม่ผูกกับ .github/auto-review.yml จริงที่มีชื่อคนจริง
+const fs = require('fs');
+const CFG_BASE = path.join(__dirname, 'tmp-base.yml');
+fs.writeFileSync(CFG_BASE, 'team: [alice, bob, carol, dave]\nunavailable: []\nexclude_patterns:\n  - "**/package-lock.json"\n');
+process.env.AUTO_REVIEW_CONFIG = path.relative(process.env.GITHUB_WORKSPACE, CFG_BASE);
+test.after(() => {
+  delete process.env.AUTO_REVIEW_CONFIG;
+  try {
+    fs.unlinkSync(CFG_BASE);
+  } catch {}
+});
+
 function fakeRepo({ prs = [], files = {}, reviews = {}, comments = {} }) {
   const calls = { requested: [], created: [], updated: [], labels: [] };
   const byNum = (n) => prs.find((p) => p.number === n);
@@ -140,7 +152,7 @@ test('ไม่มีคนเลือกได้ (ทุกคนลา): ไ
     assert.ok(calls.labels.some((l) => l.add?.includes('needs-reviewer')));
     assert.match(calls.created[0].body, /ยังไม่มี Reviewer/);
   } finally {
-    delete process.env.AUTO_REVIEW_CONFIG;
+    process.env.AUTO_REVIEW_CONFIG = path.relative(process.env.GITHUB_WORKSPACE, CFG_BASE);
     require('fs').unlinkSync(cfgPath);
   }
 });
