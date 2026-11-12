@@ -99,8 +99,11 @@ C01..C05: ผ่านครบ 5/5 (Nontawatpkru17 และ Themynon2 accept i
         (run https://github.com/GitNonta/auto-review-system-test/actions/runs/43168541870)
         * รอบแรก PR #5 FAIL เพราะบอทเลือก Themynon2 ตอน invitation ยังค้าง → requestReviewers 422 ทั้งชุด (ดูบั๊กข้อ 2)
    C04 PASS — PR #6: reviewer = Nontawatpkru17, GitNonta (author) ไม่ถูกเลือก
-   C05 PASS — PR #7: total=50 (package-lock.json 5,000 บรรทัดไม่ถูกนับ) — รอบแรก assignment ล้มด้วยเหตุ invite ค้าง
-        (ยังไม่ rerun หลัง accept; คาดว่า assign ได้ถ้ารันซ้ำ)
+   C05 PASS — PR #7 (rerun ด้วยการปิด/เปิด PR ใหม่): total=50 (package-lock.json 5,000 บรรทัดไม่ถูกนับ)
+        reviewer = Nontawatpkru17 1 คน, label needs-reviewer ถูกลบ, คอมเมนต์เดิมถูกอัปเดตไม่สร้างใหม่ (1 -> 1)
+        log: "#7: total=50 needed=1 existing=0 added=[nontawatpkru17]"
+        (run https://github.com/GitNonta/auto-review-system-test/actions/runs/43168872774)
+        * รอบแรก assignment ล้มเพราะบอทเลือกคำเชิญที่ยังค้าง → 422 ทั้งชุด
 C06..C25: ยังไม่รัน — ตอนนี้ team ครบ 3 คน (accept แล้ว) พร้อมรันต่อ
 D: ยังไม่เริ่ม (ต้องมี C ผ่านก่อน)
 ปัญหาที่พบ / ข้อเสนอแก้:
