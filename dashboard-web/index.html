@@ -13,7 +13,16 @@
           <div class="muted" id="sub">กำลังโหลด…</div>
         </div>
       </div>
-      <div class="pr muted" id="loading">กำลังโหลดข้อมูล…</div>
+      <div class="boot" role="status" aria-live="polite">
+        <svg class="ico spin" id="boot-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+          <path d="M20 11a8 8 0 1 0-2 5.3"/><path d="M20 4v7h-7"/>
+        </svg>
+        <div>
+          <b>Auto-review dashboard</b>
+          <div class="muted" id="sub">กำลังเตรียมข้อมูลโปรเจกต์…</div>
+          <div class="muted" id="loading">กำลังดึง PR ล่าสุด…</div>
+        </div>
+      </div>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
