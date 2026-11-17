@@ -24,6 +24,9 @@ use serde::Serialize;
 use serde_json::{json, Value};
 use tokio::sync::Mutex;
 
+#[allow(dead_code)]
+mod duration;
+
 const MARK: &str = "<!-- auto-review-state:";
 const MARK_END: &str = "-->";
 const BOT_LOGIN: &str = "github-actions[bot]";
