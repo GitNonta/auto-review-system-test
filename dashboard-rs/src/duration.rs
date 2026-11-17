@@ -1,4 +1,4 @@
-//! แปลงช่วงเวลาแบบสั้น (เช่น `48h`, `2d`, `1d12h`, `90m`) เป็นวินาที และแปลงกลับเป็นข้อความอ่านง่าย
+//! แปลงช่วงเวลาแบบสั้น (เช่น `48h`, `2d`, `1w`, `1d12h`, `90m`) เป็นวินาที และแปลงกลับเป็นข้อความอ่านง่าย
 //!
 //! ใช้กับค่าอย่าง `overdue_hours` หรือ query `?older_than=2d` ของแดชบอร์ด
 //! ไม่มี dependency ภายนอก
@@ -6,6 +6,7 @@
 const MINUTE: i64 = 60;
 const HOUR: i64 = 60 * MINUTE;
 const DAY: i64 = 24 * HOUR;
+const WEEK: i64 = 7 * DAY;
 
 /// ข้อผิดพลาดตอน parse
 #[derive(Debug, PartialEq, Eq)]
@@ -23,6 +24,7 @@ fn unit_seconds(unit: char) -> Option<i64> {
         'm' => Some(MINUTE),
         'h' => Some(HOUR),
         'd' => Some(DAY),
+        'w' => Some(WEEK),
         _ => None,
     }
 }
@@ -85,6 +87,7 @@ mod tests {
         assert_eq!(parse_duration("1d12h"), Ok(DAY + 12 * HOUR));
         assert_eq!(parse_duration(" 1D 30M "), Ok(DAY + 30 * MINUTE));
         assert_eq!(parse_duration("45s"), Ok(45));
+        assert_eq!(parse_duration("1w2d"), Ok(9 * DAY));
     }
 
     #[test]
