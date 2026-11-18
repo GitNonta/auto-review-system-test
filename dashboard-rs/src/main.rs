@@ -10,6 +10,7 @@
 //!
 //! ไม่อ่านค่าจาก GitHub แบบเขียนกลับ: เรียกแค่ GET (pulls/files/reviews/comments)
 
+mod balance;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
